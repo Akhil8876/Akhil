@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { Canvas, Group, Image, useImage } from '@shopify/react-native-skia';
+import { Canvas, Group, Image, type SkImage } from '@shopify/react-native-skia';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 
 import type { Garment } from '../catalog/types';
@@ -10,6 +10,8 @@ import { solveFit } from '../fit/solveFit';
 interface Props {
   pose: SharedValue<Pose>;
   garment: Garment;
+  /** Decoded artwork, owned by the screen so snapshots can reuse it. */
+  image: SkImage | null;
   /** Manual trim from the fit sheet. */
   fitTrim: number;
   width: number;
@@ -24,9 +26,7 @@ interface Props {
  * worklet whenever it changes. Nothing here round-trips through React, which
  * is what keeps the garment locked to the body instead of trailing it.
  */
-export function GarmentOverlay({ pose, garment, fitTrim, width, height }: Props) {
-  const image = useImage(garment.image);
-
+export function GarmentOverlay({ pose, garment, image, fitTrim, width, height }: Props) {
   const { anchors, shoulderEase, lengthEase } = garment;
 
   // Solved once per pose update; the render values below are cheap reads of it.

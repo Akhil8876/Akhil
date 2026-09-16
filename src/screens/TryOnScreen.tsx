@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { useImage } from '@shopify/react-native-skia';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ViewShot, { captureRef } from 'react-native-view-shot';
 
 import { GarmentCarousel } from '../components/GarmentCarousel';
 import { GarmentOverlay } from '../components/GarmentOverlay';
@@ -22,6 +22,8 @@ import { GARMENTS, garmentById } from '../catalog/garments';
 import { emptyPose, hasTorso, type Pose } from '../pose/keypoints';
 import { usePoseDetector } from '../pose/usePoseDetector';
 import { measureBody, recommendSize } from '../fit/measure';
+import { solveFit } from '../fit/solveFit';
+import { composeLook } from '../capture/composeLook';
 import { useCloset } from '../state/useCloset';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -31,6 +33,13 @@ import { colors, radius, spacing, type } from '../theme';
  * size recommendation, which does not need to update 30 times a second.
  */
 const MEASURE_INTERVAL_MS = 400;
+
+/**
+ * The front-camera preview is always mirrored, so landmarks are projected
+ * mirrored too and snapshots have to match. VisionCamera mirrors front-camera
+ * stills by default for the same reason.
+ */
+const PREVIEW_MIRRORED = true;
 
 export function TryOnScreen() {
   const insets = useSafeAreaInsets();
@@ -42,7 +51,7 @@ export function TryOnScreen() {
   const [capturing, setCapturing] = useState(false);
   const [sampledPose, setSampledPose] = useState<Pose>(() => emptyPose());
 
-  const shotRef = useRef<ViewShot>(null);
+  const cameraRef = useRef<Camera>(null);
 
   const {
     activeGarmentId,
@@ -60,7 +69,11 @@ export function TryOnScreen() {
 
   const garment = garmentById(activeGarmentId) ?? GARMENTS[0]!;
 
-  const detector = usePoseDetector({ view: viewSize, mirrored: true });
+  // Decoded once here and handed to both the live overlay and the compositor,
+  // so a snapshot never waits on a second decode of the same artwork.
+  const garmentImage = useImage(garment.image);
+
+  const detector = usePoseDetector({ view: viewSize, mirrored: PREVIEW_MIRRORED });
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -88,10 +101,34 @@ export function TryOnScreen() {
   const tracking = hasTorso(sampledPose);
 
   const onCapture = useCallback(async () => {
-    if (shotRef.current == null || capturing) return;
+    const camera = cameraRef.current;
+    if (camera == null || garmentImage == null || capturing) return;
+
     setCapturing(true);
     try {
-      const uri = await captureRef(shotRef, { format: 'jpg', quality: 0.9 });
+      const photo = await camera.takePhoto({ enableShutterSound: false });
+
+      // Solve against the pose as of the shutter rather than the 400ms sizing
+      // sample, so the garment lands where it was when the photo was taken.
+      const fit = solveFit(detector.pose.value, garment.anchors, {
+        shoulderEase: garment.shoulderEase,
+        lengthEase: garment.lengthEase,
+        userScale: fitTrim,
+      });
+
+      const uri = await composeLook({
+        photoPath: photo.path,
+        photoWidth: photo.width,
+        photoHeight: photo.height,
+        photoOrientation: photo.orientation,
+        photoIsMirrored: photo.isMirrored,
+        previewMirrored: PREVIEW_MIRRORED,
+        view: viewSize,
+        fit,
+        garmentImage,
+        garmentAnchors: garment.anchors,
+      });
+
       addLook({
         id: `${Date.now()}`,
         garmentId: garment.id,
@@ -107,7 +144,7 @@ export function TryOnScreen() {
     } finally {
       setCapturing(false);
     }
-  }, [addLook, capturing, garment.id, recommendation]);
+  }, [addLook, capturing, detector.pose, fitTrim, garment, garmentImage, recommendation, viewSize]);
 
   if (!hasPermission) {
     return (
@@ -144,22 +181,29 @@ export function TryOnScreen() {
 
   return (
     <View style={styles.container}>
-      <ViewShot ref={shotRef} style={styles.preview} onLayout={onLayout}>
+      <View style={styles.preview} onLayout={onLayout}>
         <Camera
+          ref={cameraRef}
           style={StyleSheet.absoluteFill}
           device={device}
           isActive
+          photo
           frameProcessor={detector.frameProcessor}
           // The model wants RGB, and asking the pipeline for it directly is
           // cheaper than converting YUV on every frame.
           pixelFormat="rgb"
           resizeMode="cover"
+          // Pin stills to the preview's orientation. The default follows the
+          // device, which would hand us a landscape photo while the overlay
+          // coordinates are still portrait.
+          outputOrientation="preview"
         />
         {viewSize.width > 0 ? (
           <>
             <GarmentOverlay
               pose={detector.pose}
               garment={garment}
+              image={garmentImage}
               fitTrim={fitTrim}
               width={viewSize.width}
               height={viewSize.height}
@@ -173,7 +217,7 @@ export function TryOnScreen() {
             ) : null}
           </>
         ) : null}
-      </ViewShot>
+      </View>
 
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
         <View style={styles.statusPill}>

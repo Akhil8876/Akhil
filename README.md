@@ -30,6 +30,28 @@ Camera frame  ->  centre-square crop  ->  MoveNet Lightning  ->  17 landmarks
    landmark-to-pixel path stays on the UI thread, so the garment is locked to
    your body rather than trailing it.
 
+### Saving a look
+
+Snapshots do not screenshot the screen. The camera renders into a `SurfaceView`,
+which a view-hierarchy capture reads back as a black rectangle on many Android
+devices, so instead of photographing the preview the app rebuilds it:
+
+1. `takePhoto()` for a real still at sensor resolution.
+2. Crop it exactly the way the preview cropped it - same cover crop, same
+   orientation, same mirroring.
+3. Draw the garment back on with the transform solved at the shutter, scaled
+   from view points into output pixels.
+
+Because step 3 replays the identical transform chain the live overlay uses, the
+still cannot drift from what you saw - and it comes out sharper than the preview,
+since it is composited at the photo's resolution rather than the screen's.
+
+The transform chains live in `src/capture/geometry.ts` as plain data
+(`CanvasOp[]`), which is what lets `tests/capture.test.ts` replay them through
+an ordinary affine matrix and assert the real invariants - the subject stays
+centred, the frame is covered with no blank edges, nothing is stretched - with
+no GPU involved. `src/capture/composeLook.ts` is then a thin applier over Skia.
+
 ### Coordinate spaces
 
 The one genuinely fiddly part. `src/pose/projection.ts` names four spaces -
@@ -68,7 +90,7 @@ fresh clone builds offline. To refresh it: `npm run fetch-model`.
 ## Development
 
 ```bash
-npm test          # geometry tests - projection, fit solve, sizing, smoothing
+npm test          # geometry tests - projection, fit solve, sizing, smoothing, capture
 npm run typecheck # tsc, strict
 npm run gen-assets # regenerate the placeholder garment artwork
 ```
@@ -99,10 +121,9 @@ numbers change.
   poses more oblique than `MIN_ASPECT` rather than drawing something wrong.
 - **No occlusion.** The garment draws over your arms when they cross your body;
   fixing this needs a segmentation mask in addition to the pose.
-- **Snapshot capture on Android.** `react-native-view-shot` captures the camera
-  preview through a `SurfaceView`, which yields a black frame on some Android
-  devices. iOS is unaffected. A robust fix is to composite the overlay onto a
-  `takePhoto()` still rather than screenshotting the preview.
+- **Shutter latency.** The garment is placed using the pose as of the shutter,
+  but `takePhoto()` returns a frame captured a moment later. Moving quickly as
+  you tap will show a small offset.
 - **Single person.** MoveNet SinglePose tracks one body; the most prominent
   subject wins.
 - **Sizing is an estimate,** not a tailor. See `src/fit/measure.ts`.
