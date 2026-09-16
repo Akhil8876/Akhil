@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "MirrorFit",
+    "slug": "mirrorfit",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "mirrorfit",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "assetBundlePatterns": ["assets/**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mirrorfit.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "MirrorFit uses the front camera to show clothing on you in real time. Video never leaves your device.",
+        "NSPhotoLibraryAddUsageDescription": "Save your try-on snapshots to your photo library."
+      }
+    },
+    "android": {
+      "package": "com.mirrorfit.app",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "plugins": [
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "MirrorFit uses the front camera to show clothing on you in real time.",
+          "enableFrameProcessors": true
+        }
+      ],
+      "expo-media-library",
+      ["expo-build-properties", { "android": { "minSdkVersion": 26 } }]
+    ]
+  }
+}
