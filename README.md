@@ -90,13 +90,31 @@ fresh clone builds offline. To refresh it: `npm run fetch-model`.
 ## Development
 
 ```bash
-npm test          # geometry tests - projection, fit solve, sizing, smoothing, capture
-npm run typecheck # tsc, strict
+npm run verify     # typecheck + tests + bundle both platforms
+npm test           # geometry tests - projection, fit solve, sizing, smoothing, capture
+npm run typecheck  # tsc, strict
+npm run bundle     # Metro bundle for iOS and Android, catches import/asset errors
 npm run gen-assets # regenerate the placeholder garment artwork
 ```
 
 The fitting maths has no React Native imports, so `npm test` bundles it with
 esbuild and runs it under `node:test` - no simulator, ~100ms.
+
+`npm run bundle` is the useful check before touching a device: it runs the real
+Metro pipeline, so it catches unresolved imports, missing assets and Babel
+plugin problems in about a minute, none of which need hardware.
+
+### Worklet plugins
+
+Two worklet runtimes are in play and both Babel plugins are required:
+VisionCamera frame processors compile against `react-native-worklets-core`,
+while Reanimated 4 uses `react-native-worklets`. Reanimated's plugin must stay
+last in `babel.config.js`. If the camera runs but no pose ever appears, a
+missing or misordered plugin is the first thing to check - the `'worklet'`
+directive silently fails to compile rather than erroring.
+
+`metro.config.js` registers `.tflite` as an asset extension; without it Metro
+tries to parse the pose model as JavaScript.
 
 ## Adding a garment
 
