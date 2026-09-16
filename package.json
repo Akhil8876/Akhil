@@ -8,10 +8,10 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild --clean",
-    "fetch-model": "bash scripts/fetch-model.sh",
-    "gen-assets": "python3 scripts/generate_garments.py",
+    "fetch-model": "node scripts/fetch-model.mjs",
+    "gen-assets": "node scripts/gen-assets.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "bash scripts/run-tests.sh",
+    "test": "node scripts/run-tests.mjs",
     "bundle": "expo export --output-dir .bundle-check",
     "verify": "npm run typecheck && npm test && npm run bundle"
   },

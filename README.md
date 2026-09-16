@@ -81,8 +81,15 @@ this app needs - it uses a development build.
 ```bash
 npm install
 npm run prebuild          # generate the native ios/ and android/ projects
-npm run ios               # or: npm run android
+npm run android           # or: npm run ios  (macOS only)
 ```
+
+| Platform | Host OS | Also needs |
+| --- | --- | --- |
+| Android | Windows, macOS, Linux | Android Studio (or JDK 17 + platform-tools), USB debugging enabled |
+| iOS | macOS only | Xcode. A free Apple ID works; builds expire after 7 days |
+
+All scripts are Node-based and run the same in PowerShell, cmd, bash and zsh.
 
 The pose model is committed at `assets/models/movenet-lightning.tflite` so a
 fresh clone builds offline. To refresh it: `npm run fetch-model`.
@@ -99,6 +106,9 @@ npm run gen-assets # regenerate the placeholder garment artwork
 
 The fitting maths has no React Native imports, so `npm test` bundles it with
 esbuild and runs it under `node:test` - no simulator, ~100ms.
+
+Regenerating the artwork needs Python 3 with Pillow (`pip install pillow`);
+everything else is Node only.
 
 `npm run bundle` is the useful check before touching a device: it runs the real
 Metro pipeline, so it catches unresolved imports, missing assets and Babel
