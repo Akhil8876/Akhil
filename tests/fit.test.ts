@@ -215,3 +215,43 @@ test('one euro filter survives a duplicated timestamp', () => {
   const out = filterOneEuro(state, 20, 1000);
   assert.ok(Number.isFinite(out), `got ${out}`);
 });
+
+test('an unmirrored frame does not hang the garment upside down', () => {
+  // MoveNet labels shoulders anatomically, so on an unmirrored frame the
+  // wearer's left shoulder sits to the RIGHT of their right shoulder. Naive
+  // right-minus-left gives ~180 degrees here.
+  const pose = makePose({
+    [KP.LeftShoulder]: { x: 250, y: 300 },
+    [KP.RightShoulder]: { x: 150, y: 300 },
+    [KP.LeftHip]: { x: 240, y: 500 },
+    [KP.RightHip]: { x: 160, y: 500 },
+  });
+  const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
+  assert.ok(Math.abs(fit.rotation) < 1e-9, `rotation=${fit.rotation}`);
+});
+
+test('the garment always hangs toward the hips', () => {
+  // Whatever the labelling, the artwork's +y axis must point at the hips.
+  for (const swapped of [false, true]) {
+    const pose = makePose({
+      [KP.LeftShoulder]: { x: swapped ? 250 : 150, y: 300 },
+      [KP.RightShoulder]: { x: swapped ? 150 : 250, y: 300 },
+      [KP.LeftHip]: { x: swapped ? 240 : 160, y: 520 },
+      [KP.RightHip]: { x: swapped ? 160 : 240, y: 520 },
+    });
+    const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
+    const downY = Math.cos(fit.rotation);
+    assert.ok(downY > 0, `swapped=${swapped}: garment points up, rotation=${fit.rotation}`);
+  }
+});
+
+test('rotation stays in the canonical (-pi, pi] range', () => {
+  const pose = makePose({
+    [KP.LeftShoulder]: { x: 250, y: 300 },
+    [KP.RightShoulder]: { x: 150, y: 300 },
+    [KP.LeftHip]: { x: 240, y: 500 },
+    [KP.RightHip]: { x: 160, y: 500 },
+  });
+  const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
+  assert.ok(fit.rotation > -Math.PI && fit.rotation <= Math.PI, `rotation=${fit.rotation}`);
+});

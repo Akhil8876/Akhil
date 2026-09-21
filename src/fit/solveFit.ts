@@ -60,10 +60,24 @@ export function solveFit(
   if (shoulderWidth < 1 || torsoLength < 1) return null;
   if (shoulderWidth / torsoLength < MIN_ASPECT) return null;
 
-  // Shoulder line direction. Using right-minus-left keeps rotation 0 for a
-  // level wearer regardless of which way the preview is mirrored, because the
-  // mirroring was already applied when the keypoints were projected.
-  const rotation = Math.atan2(rs.y - ls.y, rs.x - ls.x);
+  let rotation = Math.atan2(rs.y - ls.y, rs.x - ls.x);
+
+  // MoveNet labels shoulders anatomically: "left" is the wearer's own left,
+  // which lands on the RIGHT of an unmirrored frame. Right-minus-left
+  // therefore flips sign with the mirroring, and on an unmirrored frame the
+  // garment would hang upside down (measured: 173 degrees instead of 7).
+  //
+  // Rather than trust the labelling, settle it against the body: the artwork's
+  // +y axis runs shoulders-to-hem, so it has to point at the hips.
+  const downX = -Math.sin(rotation);
+  const downY = Math.cos(rotation);
+  if (downX * (hipMid.x - shoulderMid.x) + downY * (hipMid.y - shoulderMid.y) < 0) {
+    rotation += Math.PI;
+  }
+
+  // Keep the angle in (-pi, pi] so callers and tests see a canonical value.
+  if (rotation > Math.PI) rotation -= 2 * Math.PI;
+  else if (rotation <= -Math.PI) rotation += 2 * Math.PI;
 
   const userScale = options.userScale ?? 1;
   const scaleX = ((shoulderWidth * options.shoulderEase) / anchors.shoulderWidth) * userScale;
