@@ -55,9 +55,18 @@ export function filterOneEuro(
   state: OneEuroState,
   value: number,
   timestampMs: number,
-  config: OneEuroConfig = DEFAULT_ONE_EURO,
+  config?: OneEuroConfig,
 ): number {
   'worklet';
+  // The default is resolved here rather than in the parameter list. The Babel
+  // worklet plugin collects a worklet's free variables from its BODY and
+  // copies them into the closure shipped to the frame-processor runtime; it
+  // does not walk default-parameter expressions. A default of
+  // `= DEFAULT_ONE_EURO` therefore compiles fine and then throws
+  // "Property 'DEFAULT_ONE_EURO' doesn't exist" on the first frame.
+  // Never give a worklet a default parameter that references anything.
+  const settings = config ?? DEFAULT_ONE_EURO;
+
   if (!state.hasPrev) {
     state.hasPrev = true;
     state.xPrev = value;
@@ -72,9 +81,9 @@ export function filterOneEuro(
   if (!(dt > 0) || dt > 1) dt = 1 / 30;
 
   const dx = (value - state.xPrev) / dt;
-  const dxHat = state.dxPrev + alpha(config.dCutoff, dt) * (dx - state.dxPrev);
+  const dxHat = state.dxPrev + alpha(settings.dCutoff, dt) * (dx - state.dxPrev);
 
-  const cutoff = config.minCutoff + config.beta * Math.abs(dxHat);
+  const cutoff = settings.minCutoff + settings.beta * Math.abs(dxHat);
   const xHat = state.xPrev + alpha(cutoff, dt) * (value - state.xPrev);
 
   state.xPrev = xHat;
