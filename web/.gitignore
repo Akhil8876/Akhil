@@ -4,3 +4,4 @@ dist/
 scripts/out/
 public/wasm/
 public/garments/
+public/models/

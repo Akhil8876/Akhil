@@ -69,9 +69,9 @@ export const GARMENT_SPECS: GarmentSpec[] = [
     category: 'top',
     priceCents: 3200,
     colorway: 'Chalk',
-    anchors: anchors(464, 460),
+    anchors: anchors(464, 520),
     shoulderEase: 1.06,
-    lengthEase: 1.32,
+    lengthEase: 1.17,
     sizes: STANDARD_SIZES,
   },
   {
@@ -81,9 +81,9 @@ export const GARMENT_SPECS: GarmentSpec[] = [
     category: 'top',
     priceCents: 3200,
     colorway: 'Deep Navy',
-    anchors: anchors(464, 460),
+    anchors: anchors(464, 520),
     shoulderEase: 1.06,
-    lengthEase: 1.32,
+    lengthEase: 1.17,
     sizes: STANDARD_SIZES,
   },
   {
@@ -93,9 +93,9 @@ export const GARMENT_SPECS: GarmentSpec[] = [
     category: 'top',
     priceCents: 5400,
     colorway: 'Field Olive',
-    anchors: anchors(476, 486),
+    anchors: anchors(476, 544),
     shoulderEase: 1.08,
-    lengthEase: 1.34,
+    lengthEase: 1.2,
     sizes: STANDARD_SIZES,
   },
   {
@@ -105,9 +105,9 @@ export const GARMENT_SPECS: GarmentSpec[] = [
     category: 'top',
     priceCents: 7800,
     colorway: 'Pale Sky',
-    anchors: anchors(488, 502),
+    anchors: anchors(488, 560),
     shoulderEase: 1.1,
-    lengthEase: 1.38,
+    lengthEase: 1.24,
     sizes: STANDARD_SIZES,
   },
   {
@@ -117,9 +117,9 @@ export const GARMENT_SPECS: GarmentSpec[] = [
     category: 'top',
     priceCents: 11900,
     colorway: 'Burnt Rust',
-    anchors: anchors(496, 508),
+    anchors: anchors(496, 552),
     shoulderEase: 1.12,
-    lengthEase: 1.3,
+    lengthEase: 1.2,
     sizes: STANDARD_SIZES,
   },
   {
@@ -129,10 +129,10 @@ export const GARMENT_SPECS: GarmentSpec[] = [
     category: 'outerwear',
     priceCents: 18500,
     colorway: 'Jet Black',
-    anchors: anchors(552, 460),
+    anchors: anchors(544, 504),
     // Outerwear sits over whatever the wearer already has on.
     shoulderEase: 1.18,
-    lengthEase: 1.26,
+    lengthEase: 1.15,
     sizes: OUTERWEAR_SIZES,
   },
   {
@@ -142,11 +142,11 @@ export const GARMENT_SPECS: GarmentSpec[] = [
     category: 'outerwear',
     priceCents: 32000,
     colorway: 'Camel',
-    anchors: anchors(564, 652),
+    anchors: anchors(556, 696),
     shoulderEase: 1.2,
     // A trench falls well below the hip, so it is cut long against the
     // shoulder-to-hip span the pose gives us.
-    lengthEase: 1.95,
+    lengthEase: 1.83,
     sizes: OUTERWEAR_SIZES,
   },
   {
@@ -156,9 +156,9 @@ export const GARMENT_SPECS: GarmentSpec[] = [
     category: 'dress',
     priceCents: 24500,
     colorway: 'Emerald',
-    anchors: anchors(416, 690),
+    anchors: anchors(420, 716),
     shoulderEase: 1.02,
-    lengthEase: 2.1,
+    lengthEase: 2.02,
     sizes: STANDARD_SIZES,
   },
 ];

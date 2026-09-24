@@ -53,6 +53,19 @@ const MIN_ASPECT = 0.22;
 const MAX_ANISOTROPY = 1.18;
 const MIN_ANISOTROPY = 0.85;
 
+/**
+ * How far above the shoulder landmarks the garment's shoulder seam sits, as a
+ * fraction of shoulder breadth.
+ *
+ * Both MoveNet and BlazePose put the shoulder keypoint at the joint, roughly
+ * where the arm meets the torso. A garment's shoulder seam sits higher, on top
+ * of the shoulder. Anchoring straight to the landmark hangs the whole piece
+ * low and leaves a bare gap at the collar. Biacromial breadth is about 40cm on
+ * an adult and the joint sits some 5cm below the shoulder line, which is where
+ * this ratio comes from.
+ */
+const SHOULDER_LIFT = 0.12;
+
 export function solveFit(
   pose: Pose,
   anchors: GarmentAnchors,
@@ -110,9 +123,14 @@ export function solveFit(
   const weakest = Math.min(ls.score, rs.score, lh.score, rh.score);
   const confidence = clamp((weakest - MIN_KEYPOINT_SCORE * 0.7) / 0.3, 0, 1);
 
+  // Lift along the garment's own up axis, so it stays correct when leaning.
+  const lift = shoulderWidth * SHOULDER_LIFT;
+  const upX = Math.sin(rotation);
+  const upY = -Math.cos(rotation);
+
   return {
-    originX: shoulderMid.x,
-    originY: shoulderMid.y,
+    originX: shoulderMid.x + upX * lift,
+    originY: shoulderMid.y + upY * lift,
     rotation,
     scaleX,
     scaleY,

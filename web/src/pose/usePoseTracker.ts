@@ -5,6 +5,7 @@ import { emptyPose, KEYPOINT_COUNT, type Pose } from '@shared/pose/keypoints';
 import { createOneEuroState, filterOneEuro, type OneEuroState } from '@shared/utils/oneEuro';
 import { toPose } from './landmarks';
 import { projectToView, type ViewProjection } from './project';
+import { createBodyMask, updateBodyMask, type BodyMask } from '../render/bodyMask';
 
 export type TrackerStatus = 'idle' | 'loading' | 'ready' | 'denied' | 'error';
 
@@ -13,6 +14,8 @@ export interface PoseTracker {
   error: string | null;
   /** Latest smoothed pose in view pixels. A ref, so the loop never re-renders. */
   poseRef: React.RefObject<Pose>;
+  /** Latest body silhouette, used to clip the garment. Null until first frame. */
+  maskRef: React.RefObject<BodyMask | null>;
   start: () => Promise<void>;
   stop: () => void;
 }
@@ -27,6 +30,14 @@ const TARGET_FPS = 30;
  */
 const DETECTION_CONFIDENCE = 0.5;
 
+/**
+ * Which BlazePose weights to serve: 'lite' (5.8MB), 'full' (9.4MB) or
+ * 'heavy' (30MB). Full is the default - noticeably steadier landmarks than
+ * lite on real bodies for a few extra megabytes, where heavy costs a long
+ * first load for little more. Synced by scripts/sync-assets.mjs.
+ */
+const POSE_MODEL: 'lite' | 'full' | 'heavy' = 'full';
+
 export function usePoseTracker(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   getProjection: () => ViewProjection | null,
@@ -36,6 +47,7 @@ export function usePoseTracker(
 
   const poseRef = useRef<Pose>(emptyPose());
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
+  const maskRef = useRef<BodyMask | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastInferenceRef = useRef(0);
@@ -76,10 +88,13 @@ export function usePoseTracker(
       // The GPU delegate needs WebGL2, which some browsers and locked-down
       // machines do not offer. Fall back to CPU rather than failing outright:
       // slower, but both delegates produce identical landmarks.
-      const modelAssetPath = `${import.meta.env.BASE_URL}models/pose_landmarker_lite.task`;
+      const modelAssetPath = `${import.meta.env.BASE_URL}models/pose_landmarker_${POSE_MODEL}.task`;
       const options = {
         runningMode: 'VIDEO' as const,
         numPoses: 1,
+        // The silhouette is what keeps the garment on the wearer instead of
+        // spilling onto the background.
+        outputSegmentationMasks: true,
         minPoseDetectionConfidence: DETECTION_CONFIDENCE,
         minPosePresenceConfidence: DETECTION_CONFIDENCE,
         minTrackingConfidence: DETECTION_CONFIDENCE,
@@ -115,6 +130,20 @@ export function usePoseTracker(
         const landmarks = result.landmarks[0];
         if (landmarks == null) return;
 
+        const segmentation = result.segmentationMasks?.[0];
+        if (segmentation != null) {
+          if (
+            maskRef.current == null ||
+            maskRef.current.width !== segmentation.width ||
+            maskRef.current.height !== segmentation.height
+          ) {
+            maskRef.current = createBodyMask(segmentation.width, segmentation.height);
+          }
+          updateBodyMask(maskRef.current, segmentation.getAsFloat32Array());
+          // MediaPipe reuses its buffers, so the mask has to be released.
+          segmentation.close();
+        }
+
         const raw = toPose(landmarks);
         const states = filtersRef.current;
         const next: Pose = [];
@@ -143,5 +172,5 @@ export function usePoseTracker(
 
   useEffect(() => stop, [stop]);
 
-  return { status, error, poseRef, start, stop };
+  return { status, error, poseRef, maskRef, start, stop };
 }

@@ -40,6 +40,8 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
+page.on('requestfailed', (r) => logs.push(`[reqfail] ${r.url()} ${r.failure()?.errorText ?? ''}`));
+page.on('response', (r) => { if (r.status() >= 400) logs.push(`[http ${r.status()}] ${r.url()}`); });
 
 await page.goto(url, { waitUntil: 'networkidle' });
 await page.screenshot({ path: path.join(OUT, '1-start.png') });
@@ -89,8 +91,10 @@ await page.getByRole('option').nth(5).click();
 await page.waitForTimeout(800);
 await page.screenshot({ path: path.join(OUT, '4-outerwear.png') });
 
-await page.getByRole('button', { name: /save this look/i }).click();
-await page.waitForTimeout(1200);
+const saveBtn = page.getByRole('button', { name: /save this look/i });
+console.log('save enabled:', await saveBtn.isEnabled());
+await saveBtn.click();
+await page.waitForTimeout(2500);
 const looks = await page.locator('.looks img').count();
 console.log('saved looks :', looks);
 await page.screenshot({ path: path.join(OUT, '5-saved.png') });

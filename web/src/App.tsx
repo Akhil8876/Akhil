@@ -5,8 +5,9 @@ import { solveFit } from '@shared/fit/solveFit';
 import { measureBody, recommendSize } from '@shared/fit/measure';
 import { GARMENTS, garmentById } from './catalog';
 import { usePoseTracker } from './pose/usePoseTracker';
-import type { ViewProjection } from './pose/project';
+import { coverTransform, type ViewProjection } from './pose/project';
 import { drawGarment, drawSkeleton } from './render/drawOverlay';
+import { clipToBody } from './render/bodyMask';
 import { composeLook } from './render/snapshot';
 import { GarmentRail } from './components/GarmentRail';
 import { FitPanel } from './components/FitPanel';
@@ -25,6 +26,9 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  // Garments are drawn here first so the silhouette can clip them before they
+  // reach the visible canvas.
+  const scratchRef = useRef<HTMLCanvasElement | null>(null);
   const imagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
   const [activeId, setActiveId] = useState(GARMENTS[0]!.id);
@@ -89,14 +93,43 @@ export default function App() {
       const image = imagesRef.current.get(garment.id);
       const pose = tracker.poseRef.current;
       if (image != null && image.complete) {
-        drawGarment(ctx, {
-          pose,
-          image,
-          anchors: garment.anchors,
-          shoulderEase: garment.shoulderEase,
-          lengthEase: garment.lengthEase,
-          fitTrim,
-        });
+        if (scratchRef.current == null) scratchRef.current = document.createElement('canvas');
+        const scratch = scratchRef.current;
+        if (scratch.width !== width || scratch.height !== height) {
+          scratch.width = width;
+          scratch.height = height;
+        }
+        const sctx = scratch.getContext('2d');
+        if (sctx != null) {
+          sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          sctx.clearRect(0, 0, projection.viewWidth, projection.viewHeight);
+          const drew = drawGarment(sctx, {
+            pose,
+            image,
+            anchors: garment.anchors,
+            shoulderEase: garment.shoulderEase,
+            lengthEase: garment.lengthEase,
+            fitTrim,
+          });
+
+          const mask = tracker.maskRef.current;
+          if (drew && mask != null) {
+            const { scale, offsetX, offsetY } = coverTransform(projection);
+            clipToBody(sctx, mask, {
+              x: offsetX,
+              y: offsetY,
+              width: projection.videoWidth * scale,
+              height: projection.videoHeight * scale,
+              mirrored: projection.mirrored,
+            });
+          }
+
+          if (drew) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.drawImage(scratch, 0, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          }
+        }
       }
       if (showSkeleton) drawSkeleton(ctx, pose);
 
@@ -117,7 +150,7 @@ export default function App() {
 
     render();
     return () => cancelAnimationFrame(raf);
-  }, [tracker.status, tracker.poseRef, garment, fitTrim, showSkeleton, getProjection]);
+  }, [tracker.status, tracker.poseRef, tracker.maskRef, garment, fitTrim, showSkeleton, getProjection]);
 
   // Slow sample for the size recommendation.
   useEffect(() => {
@@ -146,6 +179,7 @@ export default function App() {
         video,
         projection,
         pose: tracker.poseRef.current,
+        mask: tracker.maskRef.current,
         image,
         anchors: garment.anchors,
         shoulderEase: garment.shoulderEase,
@@ -159,7 +193,7 @@ export default function App() {
     } catch (err) {
       console.error('Could not save look', err);
     }
-  }, [garment, fitTrim, getProjection, recommendation, tracker.poseRef]);
+  }, [garment, fitTrim, getProjection, recommendation, tracker.poseRef, tracker.maskRef]);
 
   const started = tracker.status === 'ready' || tracker.status === 'loading';
 

@@ -8,12 +8,15 @@
  */
 import { drawGarment, type DrawGarmentOptions } from './drawOverlay';
 import { coverTransform, type ViewProjection } from '../pose/project';
+import { clipToBody, type BodyMask } from './bodyMask';
 
 export interface SnapshotOptions extends Omit<DrawGarmentOptions, 'scale'> {
   video: HTMLVideoElement;
   projection: ViewProjection;
   /** Cap on the output width, so a 4K webcam does not produce a huge blob. */
   maxWidth?: number;
+  /** Body silhouette, so the saved look is clipped exactly as the preview was. */
+  mask?: BodyMask | null;
 }
 
 const DEFAULT_MAX_WIDTH = 1440;
@@ -62,7 +65,25 @@ export async function composeLook(options: SnapshotOptions): Promise<string> {
   );
   ctx.restore();
 
-  drawGarment(ctx, { ...options, scale: outputScale });
+  // Garment onto its own layer, clipped, then flattened - the same order the
+  // preview uses, so a saved look cannot differ from what was on screen.
+  const layer = document.createElement('canvas');
+  layer.width = width;
+  layer.height = height;
+  const lctx = layer.getContext('2d');
+  if (lctx != null) {
+    const drew = drawGarment(lctx, { ...options, scale: outputScale });
+    if (drew && options.mask != null) {
+      clipToBody(lctx, options.mask, {
+        x: offsetX * outputScale,
+        y: offsetY * outputScale,
+        width: projection.videoWidth * scale * outputScale,
+        height: projection.videoHeight * scale * outputScale,
+        mirrored: projection.mirrored,
+      });
+    }
+    if (drew) ctx.drawImage(layer, 0, 0);
+  }
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/jpeg', 0.92),

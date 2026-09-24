@@ -38,14 +38,40 @@ Only the pose source and the renderer differ. `catalog/data.ts` carries
 everything except the artwork reference, because React Native needs `require()`
 and the browser needs a URL; each platform attaches its own.
 
+### Fit and finish
+
+Three things do most of the work of making a flat PNG read as worn clothing:
+
+- **Clipped to the body.** The pose model also returns a segmentation mask, and
+  the garment is drawn to its own layer and then clipped to the wearer's
+  silhouette (`src/render/bodyMask.ts`). Without this the garment spills past
+  the body onto the background, which is the clearest tell that nothing is
+  really being worn. The snapshot clips through the same code, so a saved look
+  cannot differ from the preview.
+- **Anchored to the shoulder seam, not the joint.** Both pose models put the
+  shoulder keypoint at the joint, several centimetres below where a shoulder
+  seam sits. Anchoring straight to it hangs every piece low and leaves a bare
+  gap at the collar, so `solveFit` lifts by `SHOULDER_LIFT` along the garment's
+  own up axis - which keeps it right when the wearer leans.
+- **Bounded stretch.** `scaleX` and `scaleY` come from shoulder breadth and
+  torso length independently, which unbounded turns a tee into a tall narrow
+  slab on a long-torsoed wearer. Anisotropy is clamped; past the bound the hem
+  sits higher instead, as fabric actually behaves.
+
 ### Pose
 
-MediaPipe Pose Landmarker (BlazePose Lite), not the MoveNet the mobile app
-uses — MoveNet's TFJS weights are not distributed in a form this build can
+MediaPipe Pose Landmarker (BlazePose), not the MoveNet the mobile app uses — MoveNet's TFJS weights are not distributed in a form this build can
 fetch. MediaPipe emits 33 landmarks; `src/pose/landmarks.ts` maps the 17 the
 fitting maths expects, so `solveFit` is untouched.
 
-The GPU delegate needs WebGL2 and falls back to CPU automatically.
+`POSE_MODEL` in `src/pose/usePoseTracker.ts` selects the weights: `lite`
+(5.8MB), `full` (9.4MB, the default) or `heavy` (30MB). Add the variant to
+`POSE_MODELS` when syncing assets. The GPU delegate needs WebGL2 and falls back
+to CPU automatically.
+
+Flat line art is not detected by any of the three - a white figure with a
+hairline outline carries no body signal. Silhouettes, photographs and anything
+with real shading detect at the default confidence.
 
 ### Snapshots
 

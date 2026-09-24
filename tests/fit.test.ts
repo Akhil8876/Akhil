@@ -100,7 +100,9 @@ test('a level centred torso solves to zero rotation at the shoulder midpoint', (
   assert.ok(fit != null);
   assert.equal(fit.rotation, 0);
   assert.equal(fit.originX, 200);
-  assert.equal(fit.originY, 300);
+  // Lifted above the shoulder landmarks, where a shoulder seam actually sits:
+  // 12% of the 100px shoulder breadth.
+  assert.ok(Math.abs(fit.originY - (300 - 12)) < 1e-9, `originY=${fit.originY}`);
   // shoulders span 100px against 464 artwork px; torso 110px against 460.
   assert.ok(Math.abs(fit.scaleX - 100 / 464) < 1e-9);
   assert.ok(Math.abs(fit.scaleY - 110 / 460) < 1e-9);
@@ -295,4 +297,39 @@ test('a normal build is left untouched by the anisotropy bounds', () => {
   });
   const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
   assert.ok(Math.abs(fit.scaleY - (110 * 1) / ANCHORS.torsoLength) < 1e-9, 'scaleY was clamped');
+});
+
+test('the shoulder lift follows the wearer when they lean', () => {
+  // Shoulder line tilted 90 degrees: "up" for the garment is now -x, so the
+  // lift must move along x, not y. A lift hard-coded to screen-up would put
+  // the garment beside the wearer instead of above the shoulder line.
+  const pose = makePose({
+    [KP.LeftShoulder]: { x: 200, y: 250 },
+    [KP.RightShoulder]: { x: 200, y: 350 },
+    [KP.LeftHip]: { x: 320, y: 260 },
+    [KP.RightHip]: { x: 320, y: 340 },
+  });
+  const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
+  const shoulderMid = { x: 200, y: 300 };
+  const lift = 100 * 0.12;
+  // Hips are at +x, so the garment hangs toward +x and lifts toward -x.
+  assert.ok(Math.abs(fit.originX - (shoulderMid.x - lift)) < 1e-6, `originX=${fit.originX}`);
+  assert.ok(Math.abs(fit.originY - shoulderMid.y) < 1e-6, `originY=${fit.originY}`);
+});
+
+test('the lift scales with the wearer, not the screen', () => {
+  const near = solveFit(makePose({
+    [KP.LeftShoulder]: { x: 100, y: 300 },
+    [KP.RightShoulder]: { x: 300, y: 300 },
+    [KP.LeftHip]: { x: 120, y: 520 },
+    [KP.RightHip]: { x: 280, y: 520 },
+  }), ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
+  const far = solveFit(makePose({
+    [KP.LeftShoulder]: { x: 175, y: 300 },
+    [KP.RightShoulder]: { x: 225, y: 300 },
+    [KP.LeftHip]: { x: 180, y: 355 },
+    [KP.RightHip]: { x: 220, y: 355 },
+  }), ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
+  assert.ok(Math.abs((300 - near.originY) - 200 * 0.12) < 1e-9);
+  assert.ok(Math.abs((300 - far.originY) - 50 * 0.12) < 1e-9);
 });
