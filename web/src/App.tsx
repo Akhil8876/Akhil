@@ -2,12 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { emptyPose, hasTorso, type Pose } from '@shared/pose/keypoints';
 import { solveFit } from '@shared/fit/solveFit';
+import {
+  anyForearmOverTorso, torsoQuad, forearms, armThickness,
+} from '@shared/fit/armOcclusion';
 import { measureBody, recommendSize } from '@shared/fit/measure';
 import { GARMENTS, garmentById } from './catalog';
 import { usePoseTracker } from './pose/usePoseTracker';
 import { coverTransform, type ViewProjection } from './pose/project';
 import { drawGarment, drawSkeleton } from './render/drawOverlay';
 import { clipToBody } from './render/bodyMask';
+import { cutOutArms } from './render/armOcclusion';
 import { composeLook } from './render/snapshot';
 import { GarmentRail } from './components/GarmentRail';
 import { FitPanel } from './components/FitPanel';
@@ -114,15 +118,19 @@ export default function App() {
           });
 
           const mask = tracker.maskRef.current;
-          if (drew && mask != null) {
+          if (drew) {
             const { scale, offsetX, offsetY } = coverTransform(projection);
-            clipToBody(sctx, mask, {
+            const placement = {
               x: offsetX,
               y: offsetY,
               width: projection.videoWidth * scale,
               height: projection.videoHeight * scale,
               mirrored: projection.mirrored,
-            });
+            };
+            if (mask != null) clipToBody(sctx, mask, placement);
+            // Arms last: they go in front of the garment, so they are cut
+            // after the garment has been trimmed to the body.
+            cutOutArms(sctx, pose, mask, placement, width, height, dpr);
           }
 
           if (drew) {
@@ -140,6 +148,12 @@ export default function App() {
         (window as unknown as Record<string, unknown>).__mirrorfit = {
           pose,
           projection,
+          occlusion: {
+            gate: anyForearmOverTorso(pose),
+            quad: torsoQuad(pose) != null,
+            forearms: forearms(pose).length,
+            thickness: armThickness(pose),
+          },
           fit: solveFit(pose, garment.anchors, {
             shoulderEase: garment.shoulderEase,
             lengthEase: garment.lengthEase,

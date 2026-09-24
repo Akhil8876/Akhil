@@ -69,6 +69,19 @@ Four things do most of the work of making a flat PNG read as worn clothing:
   seam sits. Anchoring straight to it hangs every piece low and leaves a bare
   gap at the collar, so `solveFit` lifts by `SHOULDER_LIFT` along the garment's
   own up axis - which keeps it right when the wearer leans.
+- **Arms in front.** A garment drawn over the torso otherwise covers a hand
+  resting on the chest, which reads as the arm being *inside* the shirt. The
+  forearms are cut out of the garment (`src/render/armOcclusion.ts`), and only
+  where they lie over the torso quad - an arm at the wearer's side is beside
+  the torso, not in front of it, so a long sleeve covering it survives. The
+  stroked bone only says *which* part of the body is arm; the segmentation
+  mask supplies its actual outline, so the cut follows the limb rather than a
+  capsule.
+
+  The idea comes from [ali-m07/mirrorfit](https://github.com/ali-m07/mirrorfit)
+  (MIT), which cuts against a stroked polygon; intersecting with the mask is
+  this project's addition.
+
 - **Bounded stretch.** `scaleX` and `scaleY` come from shoulder breadth and
   torso length independently, which unbounded turns a tee into a tall narrow
   slab on a long-torsoed wearer. Anisotropy is clamped; past the bound the hem

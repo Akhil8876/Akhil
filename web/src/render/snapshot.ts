@@ -9,6 +9,7 @@
 import { drawGarment, type DrawGarmentOptions } from './drawOverlay';
 import { coverTransform, type ViewProjection } from '../pose/project';
 import { clipToBody, type BodyMask } from './bodyMask';
+import { cutOutArms } from './armOcclusion';
 
 export interface SnapshotOptions extends Omit<DrawGarmentOptions, 'scale'> {
   video: HTMLVideoElement;
@@ -73,14 +74,24 @@ export async function composeLook(options: SnapshotOptions): Promise<string> {
   const lctx = layer.getContext('2d');
   if (lctx != null) {
     const drew = drawGarment(lctx, { ...options, scale: outputScale, projection });
-    if (drew && options.mask != null) {
-      clipToBody(lctx, options.mask, {
-        x: offsetX * outputScale,
-        y: offsetY * outputScale,
-        width: projection.videoWidth * scale * outputScale,
-        height: projection.videoHeight * scale * outputScale,
+    if (drew) {
+      const placement = {
+        x: offsetX,
+        y: offsetY,
+        width: projection.videoWidth * scale,
+        height: projection.videoHeight * scale,
         mirrored: projection.mirrored,
-      });
+      };
+      if (options.mask != null) {
+        clipToBody(lctx, options.mask, {
+          ...placement,
+          x: placement.x * outputScale,
+          y: placement.y * outputScale,
+          width: placement.width * outputScale,
+          height: placement.height * outputScale,
+        });
+      }
+      cutOutArms(lctx, options.pose, options.mask ?? null, placement, width, height, outputScale);
     }
     if (drew) ctx.drawImage(layer, 0, 0);
   }

@@ -13,6 +13,9 @@ import test from 'node:test';
 import { projectToView, squareCrop, rotationForOrientation } from '../src/pose/projection';
 import { solveFit } from '../src/fit/solveFit';
 import { torsoTaperFromPose, taperAt } from '../src/fit/torsoTaper';
+import {
+  torsoQuad, forearms, armThickness, withHand, anyForearmOverTorso, pointInQuad,
+} from '../src/fit/armOcclusion';
 import { measureBody, recommendSize } from '../src/fit/measure';
 import { createOneEuroState, filterOneEuro } from '../src/utils/oneEuro';
 import { KP, KEYPOINT_COUNT, type Pose } from '../src/pose/keypoints';
@@ -379,4 +382,104 @@ test('an implausible waist is bounded rather than followed', () => {
     [KP.RightHip]: { x: 300, y: 500 },
   }))!;
   assert.ok(taperAt(flared, 200) <= 1.25 + 1e-9, 'garment must not balloon');
+});
+
+// --- arm occlusion ---------------------------------------------------------
+
+/** Arms down at the sides: the common case, where nothing should be cut. */
+function armsDown(): Pose {
+  return makePose({
+    [KP.LeftShoulder]: { x: 150, y: 300 },
+    [KP.RightShoulder]: { x: 250, y: 300 },
+    [KP.LeftHip]: { x: 165, y: 480 },
+    [KP.RightHip]: { x: 235, y: 480 },
+    [KP.LeftElbow]: { x: 135, y: 400 },
+    [KP.RightElbow]: { x: 265, y: 400 },
+    [KP.LeftWrist]: { x: 130, y: 490 },
+    [KP.RightWrist]: { x: 270, y: 490 },
+  });
+}
+
+/** One hand resting on the chest - the case the cut-out exists for. */
+function handOnChest(): Pose {
+  return makePose({
+    [KP.LeftShoulder]: { x: 150, y: 300 },
+    [KP.RightShoulder]: { x: 250, y: 300 },
+    [KP.LeftHip]: { x: 165, y: 480 },
+    [KP.RightHip]: { x: 235, y: 480 },
+    [KP.LeftElbow]: { x: 130, y: 410 },
+    [KP.RightElbow]: { x: 270, y: 410 },
+    [KP.LeftWrist]: { x: 130, y: 490 },
+    [KP.RightWrist]: { x: 205, y: 370 },
+  });
+}
+
+test('the torso quad comes back in corner order', () => {
+  const quad = torsoQuad(armsDown())!;
+  assert.deepEqual(quad[0], { x: 150, y: 300 });
+  assert.deepEqual(quad[1], { x: 250, y: 300 });
+  assert.deepEqual(quad[2], { x: 235, y: 480 });
+  assert.deepEqual(quad[3], { x: 165, y: 480 });
+});
+
+test('a badly tracked torso yields no quad rather than a wrong one', () => {
+  const pose = armsDown();
+  pose[KP.LeftShoulder] = { x: 150, y: 300, score: 0.05 };
+  assert.equal(torsoQuad(pose), null);
+});
+
+test('only the forearms are taken, never the upper arm', () => {
+  const arms = forearms(armsDown());
+  assert.equal(arms.length, 2);
+  // Elbow to wrist, not shoulder to elbow: a sleeve belongs in front of the
+  // upper arm, so cutting there would erase it.
+  assert.deepEqual(arms[0], { from: { x: 135, y: 400 }, to: { x: 130, y: 490 } });
+});
+
+test('an unseen arm is skipped instead of guessed', () => {
+  const pose = armsDown();
+  pose[KP.RightWrist] = { x: 0, y: 0, score: 0 };
+  assert.equal(forearms(pose).length, 1);
+});
+
+test('arm width scales with the wearer, not the screen', () => {
+  const near = armThickness(armsDown());
+  const far = armThickness(makePose({
+    [KP.LeftShoulder]: { x: 190, y: 300 },
+    [KP.RightShoulder]: { x: 210, y: 300 },
+  }));
+  assert.ok(Math.abs(near - 100 * 0.19) < 1e-9, `near=${near}`);
+  assert.ok(far < near / 4, 'a distant wearer gets a proportionally thinner arm');
+});
+
+test('the hand extends the forearm along its own direction', () => {
+  const seg = { from: { x: 100, y: 100 }, to: { x: 100, y: 200 } };
+  const extended = withHand(seg, 20);
+  assert.equal(extended.from, seg.from);
+  assert.equal(extended.to.x, 100);
+  assert.ok(extended.to.y > 200, 'hand reaches past the wrist');
+});
+
+test('a zero-length forearm is left alone rather than producing NaN', () => {
+  const seg = { from: { x: 5, y: 5 }, to: { x: 5, y: 5 } };
+  const extended = withHand(seg, 20);
+  assert.ok(Number.isFinite(extended.to.x) && Number.isFinite(extended.to.y));
+});
+
+test('arms at the sides do not trigger a cut-out', () => {
+  // This is what protects long sleeves: a hanging arm is beside the torso,
+  // not in front of it, so the sleeve covering it must survive.
+  assert.equal(anyForearmOverTorso(armsDown()), false);
+});
+
+test('a hand on the chest does trigger a cut-out', () => {
+  assert.equal(anyForearmOverTorso(handOnChest()), true);
+});
+
+test('a point inside the torso is inside, a point outside is not', () => {
+  const quad = torsoQuad(armsDown())!;
+  assert.equal(pointInQuad({ x: 200, y: 390 }, quad), true);
+  assert.equal(pointInQuad({ x: 200, y: 200 }, quad), false, 'above the shoulders');
+  assert.equal(pointInQuad({ x: 100, y: 390 }, quad), false, 'beside the torso');
+  assert.equal(pointInQuad({ x: 200, y: 600 }, quad), false, 'below the hips');
 });

@@ -77,6 +77,13 @@ const probe = await page.evaluate(() => {
     anisotropy: +(d.fit.scaleY / d.fit.scaleX).toFixed(3),
     rotationDeg: +(d.fit.rotation * 180 / Math.PI).toFixed(1),
     view: [Math.round(d.projection.viewWidth), Math.round(d.projection.viewHeight)],
+    occlusion: d.occlusion,
+    wristL: p[9] ? { x: Math.round(p[9].x), y: Math.round(p[9].y), s: +p[9].score.toFixed(2) } : null,
+    wristR: p[10] ? { x: Math.round(p[10].x), y: Math.round(p[10].y), s: +p[10].score.toFixed(2) } : null,
+    elbowL: p[7] ? { x: Math.round(p[7].x), y: Math.round(p[7].y), s: +p[7].score.toFixed(2) } : null,
+    elbowR: p[8] ? { x: Math.round(p[8].x), y: Math.round(p[8].y), s: +p[8].score.toFixed(2) } : null,
+    shoulders: [Math.round(p[KP.LS].x), Math.round(p[KP.LS].y), Math.round(p[KP.RS].x), Math.round(p[KP.RS].y)],
+    hips: [Math.round(p[KP.LH].x), Math.round(p[KP.LH].y), Math.round(p[KP.RH].x), Math.round(p[KP.RH].y)],
   };
 });
 console.log('probe       :', JSON.stringify(probe));
