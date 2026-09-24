@@ -110,6 +110,7 @@ export default function App() {
             shoulderEase: garment.shoulderEase,
             lengthEase: garment.lengthEase,
             fitTrim,
+            projection,
           });
 
           const mask = tracker.maskRef.current;

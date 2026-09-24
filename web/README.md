@@ -40,7 +40,23 @@ and the browser needs a URL; each platform attaches its own.
 
 ### Fit and finish
 
-Three things do most of the work of making a flat PNG read as worn clothing:
+Four things do most of the work of making a flat PNG read as worn clothing:
+
+- **Warped onto the torso, not pasted over it.** A rigid transform can only
+  translate, rotate and scale a rectangle, which is exactly why an overlay
+  reads as a sticker: it cannot narrow at the waist or curve around a body.
+  The garment is drawn as a triangle mesh (`src/render/meshWarp.ts`) whose
+  destination grid narrows where the torso narrows and bows toward the viewer
+  at the centre, because a torso is round.
+
+  The taper comes from the four torso landmarks, deliberately not from the
+  segmentation mask: the mask's outline at chest height is the torso *plus*
+  both arms, and warping to it makes a t-shirt widen until its sleeves swallow
+  the forearms. `src/fit/torsoTaper.ts` in the shared core does the maths and
+  bounds it, so a mis-detected hip cannot pinch a garment to nothing.
+
+  The mesh is composited once at full opacity rather than per triangle; blending
+  each triangle separately leaves a lattice of seams across the fabric.
 
 - **Clipped to the body.** The pose model also returns a segmentation mask, and
   the garment is drawn to its own layer and then clipped to the wearer's

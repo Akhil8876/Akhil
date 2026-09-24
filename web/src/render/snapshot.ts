@@ -72,7 +72,7 @@ export async function composeLook(options: SnapshotOptions): Promise<string> {
   layer.height = height;
   const lctx = layer.getContext('2d');
   if (lctx != null) {
-    const drew = drawGarment(lctx, { ...options, scale: outputScale });
+    const drew = drawGarment(lctx, { ...options, scale: outputScale, projection });
     if (drew && options.mask != null) {
       clipToBody(lctx, options.mask, {
         x: offsetX * outputScale,

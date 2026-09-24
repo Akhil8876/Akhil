@@ -9,6 +9,7 @@ import test from 'node:test';
 import { coverTransform, projectToView, type ViewProjection } from '../src/pose/project';
 import { toPose } from '../src/pose/landmarks';
 import { KP } from '@shared/pose/keypoints';
+import { solveTriangleAffine, type Affine } from '../src/render/meshWarp';
 
 const LANDSCAPE: ViewProjection = {
   videoWidth: 1280, videoHeight: 720,
@@ -87,4 +88,52 @@ test('a missing landmark becomes a zero-confidence keypoint, not a crash', () =>
 test('a landmark without visibility is treated as seen', () => {
   const landmarks = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5 }));
   assert.equal(toPose(landmarks)[KP.LeftShoulder]!.score, 1);
+});
+
+// --- mesh warp -------------------------------------------------------------
+
+function apply(m: Affine, p: { x: number; y: number }) {
+  return { x: m.a * p.x + m.c * p.y + m.e, y: m.b * p.x + m.d * p.y + m.f };
+}
+
+test('the triangle affine carries all three source corners onto the destination', () => {
+  const s0 = { x: 0, y: 0 }, s1 = { x: 100, y: 0 }, s2 = { x: 0, y: 50 };
+  const d0 = { x: 10, y: 20 }, d1 = { x: 90, y: 35 }, d2 = { x: 25, y: 70 };
+  const m = solveTriangleAffine(s0, s1, s2, d0, d1, d2)!;
+  for (const [s, d] of [[s0, d0], [s1, d1], [s2, d2]] as const) {
+    const got = apply(m, s);
+    assert.ok(Math.abs(got.x - d.x) < 1e-9 && Math.abs(got.y - d.y) < 1e-9,
+      `${JSON.stringify(s)} -> ${JSON.stringify(got)}, wanted ${JSON.stringify(d)}`);
+  }
+});
+
+test('an interior point stays interior - the mapping is not just the corners', () => {
+  const s0 = { x: 0, y: 0 }, s1 = { x: 10, y: 0 }, s2 = { x: 0, y: 10 };
+  const d0 = { x: 0, y: 0 }, d1 = { x: 20, y: 0 }, d2 = { x: 0, y: 5 };
+  const m = solveTriangleAffine(s0, s1, s2, d0, d1, d2)!;
+  // Centroid maps to centroid under any affine.
+  const got = apply(m, { x: 10 / 3, y: 10 / 3 });
+  assert.ok(Math.abs(got.x - 20 / 3) < 1e-9, `x=${got.x}`);
+  assert.ok(Math.abs(got.y - 5 / 3) < 1e-9, `y=${got.y}`);
+});
+
+test('a degenerate triangle is refused rather than dividing by zero', () => {
+  const collinear = solveTriangleAffine(
+    { x: 0, y: 0 }, { x: 5, y: 5 }, { x: 10, y: 10 },
+    { x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 2 },
+  );
+  assert.equal(collinear, null);
+  const coincident = solveTriangleAffine(
+    { x: 3, y: 3 }, { x: 3, y: 3 }, { x: 3, y: 3 },
+    { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 },
+  );
+  assert.equal(coincident, null);
+});
+
+test('an identity mapping comes back as the identity', () => {
+  const a = { x: 0, y: 0 }, b = { x: 7, y: 0 }, c = { x: 0, y: 9 };
+  const m = solveTriangleAffine(a, b, c, a, b, c)!;
+  assert.ok(Math.abs(m.a - 1) < 1e-9 && Math.abs(m.d - 1) < 1e-9);
+  assert.ok(Math.abs(m.b) < 1e-9 && Math.abs(m.c) < 1e-9);
+  assert.ok(Math.abs(m.e) < 1e-9 && Math.abs(m.f) < 1e-9);
 });

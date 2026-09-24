@@ -12,6 +12,7 @@ import test from 'node:test';
 
 import { projectToView, squareCrop, rotationForOrientation } from '../src/pose/projection';
 import { solveFit } from '../src/fit/solveFit';
+import { torsoTaperFromPose, taperAt } from '../src/fit/torsoTaper';
 import { measureBody, recommendSize } from '../src/fit/measure';
 import { createOneEuroState, filterOneEuro } from '../src/utils/oneEuro';
 import { KP, KEYPOINT_COUNT, type Pose } from '../src/pose/keypoints';
@@ -332,4 +333,50 @@ test('the lift scales with the wearer, not the screen', () => {
   }), ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
   assert.ok(Math.abs((300 - near.originY) - 200 * 0.12) < 1e-9);
   assert.ok(Math.abs((300 - far.originY) - 50 * 0.12) < 1e-9);
+});
+
+test('torso taper is measured from the landmarks', () => {
+  const pose = makePose({
+    [KP.LeftShoulder]: { x: 150, y: 300 },
+    [KP.RightShoulder]: { x: 250, y: 300 },   // 100px across
+    [KP.LeftHip]: { x: 170, y: 500 },
+    [KP.RightHip]: { x: 230, y: 500 },        // 60px across, 200px down
+  });
+  const taper = torsoTaperFromPose(pose)!;
+  assert.equal(taper.shoulderHalf, 50);
+  assert.equal(taper.hipHalf, 30);
+  assert.equal(taper.torsoLength, 200);
+
+  assert.ok(Math.abs(taperAt(taper, 0) - 1) < 1e-9, 'shoulder line is unchanged');
+  assert.ok(Math.abs(taperAt(taper, 200) - 0.6) < 1e-9, 'hip line matches the body');
+  assert.ok(Math.abs(taperAt(taper, 100) - 0.8) < 1e-9, 'halfway is halfway');
+});
+
+test('below the hips the garment hangs straight instead of tapering to a point', () => {
+  const pose = makePose({
+    [KP.LeftShoulder]: { x: 150, y: 300 },
+    [KP.RightShoulder]: { x: 250, y: 300 },
+    [KP.LeftHip]: { x: 170, y: 500 },
+    [KP.RightHip]: { x: 230, y: 500 },
+  });
+  const taper = torsoTaperFromPose(pose)!;
+  assert.equal(taperAt(taper, 400), taperAt(taper, 200));
+});
+
+test('an implausible waist is bounded rather than followed', () => {
+  const collapsed = torsoTaperFromPose(makePose({
+    [KP.LeftShoulder]: { x: 150, y: 300 },
+    [KP.RightShoulder]: { x: 250, y: 300 },
+    [KP.LeftHip]: { x: 199, y: 500 },
+    [KP.RightHip]: { x: 201, y: 500 },   // a 2px waist
+  }))!;
+  assert.ok(taperAt(collapsed, 200) >= 0.6 - 1e-9, 'garment must not pinch to nothing');
+
+  const flared = torsoTaperFromPose(makePose({
+    [KP.LeftShoulder]: { x: 180, y: 300 },
+    [KP.RightShoulder]: { x: 220, y: 300 },
+    [KP.LeftHip]: { x: 100, y: 500 },
+    [KP.RightHip]: { x: 300, y: 500 },
+  }))!;
+  assert.ok(taperAt(flared, 200) <= 1.25 + 1e-9, 'garment must not balloon');
 });

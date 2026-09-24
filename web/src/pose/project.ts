@@ -49,3 +49,18 @@ export function projectToView(nx: number, ny: number, p: ViewProjection): Vec2 {
   const y = ny * p.videoHeight * scale + offsetY;
   return { x: p.mirrored ? p.viewWidth - x : x, y };
 }
+
+/** VIEW pixels back to normalised video space - the inverse of `projectToView`. */
+export function viewToNormalized(x: number, y: number, p: ViewProjection): Vec2 {
+  const { scale, offsetX, offsetY } = coverTransform(p);
+  const vx = p.mirrored ? p.viewWidth - x : x;
+  return {
+    x: (vx - offsetX) / (p.videoWidth * scale),
+    y: (y - offsetY) / (p.videoHeight * scale),
+  };
+}
+
+/** A normalised horizontal distance in video space, as VIEW pixels. */
+export function normalizedWidthToView(width: number, p: ViewProjection): number {
+  return width * p.videoWidth * coverTransform(p).scale;
+}
