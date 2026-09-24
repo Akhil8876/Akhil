@@ -1,0 +1,193 @@
+:root {
+  --bg: #0b0b0d;
+  --surface: #17171b;
+  --raised: #232329;
+  --border: #2e2e36;
+  --text: #f4f4f5;
+  --muted: #9a9aa5;
+  --accent: #e8d5b7;
+  --accent-text: #1a1a1e;
+  --ok: #5fbf8b;
+  --warn: #e0a458;
+  --danger: #d96b63;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  height: 100%;
+}
+
+/* ---------- camera stage ---------- */
+
+.stage {
+  position: relative;
+  background: #000;
+  overflow: hidden;
+}
+
+.preview,
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.preview {
+  object-fit: cover;
+  /* Selfie cameras read as mirrors; landmarks are projected to match. */
+  transform: scaleX(-1);
+}
+
+.overlay { pointer-events: none; }
+
+.hud {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(11, 11, 13, 0.72);
+  backdrop-filter: blur(8px);
+  font-size: 13px;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.pill.button { cursor: pointer; }
+
+.dot { width: 8px; height: 8px; border-radius: 999px; }
+.dot.ok { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+
+.start {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  text-align: center;
+  background: var(--bg);
+}
+
+.start h1 { margin: 0; font-size: 34px; letter-spacing: -0.02em; }
+.start p { margin: 0; max-width: 42ch; color: var(--muted); }
+
+.error { color: var(--danger) !important; }
+
+/* ---------- sidebar ---------- */
+
+.sidebar {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rail {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.rail-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: var(--radius);
+  border: 1.5px solid transparent;
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.rail-card.is-active { border-color: var(--accent); }
+.rail-card img { width: 100%; height: auto; }
+.rail-name { font-size: 11px; color: var(--muted); }
+.rail-price { font-size: 11px; color: var(--muted); }
+
+button.primary {
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font: 600 15px/1 inherit;
+  cursor: pointer;
+}
+
+button.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.panel {
+  background: var(--raised);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel h2 { margin: 0; font-size: 17px; }
+.panel-head p { margin: 2px 0 0; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); }
+
+.size-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.size-card p { margin: 0 0 4px; }
+.size { display: block; font-size: 32px; color: var(--accent); line-height: 1.1; }
+
+.slider { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; }
+.slider .label { grid-column: 1 / -1; }
+.slider input { width: 100%; accent-color: var(--accent); }
+.slider output { font-variant-numeric: tabular-nums; font-size: 13px; }
+
+.looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.looks img { width: 100%; border-radius: 8px; display: block; }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .sidebar { border-left: none; border-top: 1px solid var(--border); max-height: 48vh; }
+  .rail { grid-template-columns: repeat(4, 1fr); }
+}

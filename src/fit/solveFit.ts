@@ -40,6 +40,19 @@ export interface FitOptions {
  */
 const MIN_ASPECT = 0.22;
 
+/**
+ * Bounds on how far the garment may be stretched along the torso relative to
+ * across the shoulders.
+ *
+ * Scaling the two axes independently lets one artwork serve a long torso and a
+ * short one, but unbounded it distorts: a long-torsoed wearer in a tee measured
+ * 1.84 here, which renders the artwork as a tall narrow rectangle with the
+ * sleeves squeezed flat. Real fabric does not stretch like that - past a point
+ * the hem simply sits higher. These bounds encode that.
+ */
+const MAX_ANISOTROPY = 1.18;
+const MIN_ANISOTROPY = 0.85;
+
 export function solveFit(
   pose: Pose,
   anchors: GarmentAnchors,
@@ -81,7 +94,16 @@ export function solveFit(
 
   const userScale = options.userScale ?? 1;
   const scaleX = ((shoulderWidth * options.shoulderEase) / anchors.shoulderWidth) * userScale;
-  const scaleY = ((torsoLength * options.lengthEase) / anchors.torsoLength) * userScale;
+  const rawScaleY = ((torsoLength * options.lengthEase) / anchors.torsoLength) * userScale;
+
+  // Keep the vertical stretch within what fabric plausibly does.
+  const ratio = scaleX > 0 ? rawScaleY / scaleX : 1;
+  const scaleY =
+    ratio > MAX_ANISOTROPY
+      ? scaleX * MAX_ANISOTROPY
+      : ratio < MIN_ANISOTROPY
+        ? scaleX * MIN_ANISOTROPY
+        : rawScaleY;
 
   // Confidence is driven by the weakest landmark: one lost hip should fade the
   // garment, not snap it away.

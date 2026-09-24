@@ -30,6 +30,7 @@ if (entryPoints.length === 0) {
 }
 
 await build({
+  alias: { '@shared': path.join(root, '..', 'src') },
   entryPoints,
   bundle: true,
   platform: 'node',

@@ -88,20 +88,22 @@ const ANCHORS = {
 };
 
 test('a level centred torso solves to zero rotation at the shoulder midpoint', () => {
+  // Shoulders 100px, torso 110px - a build inside the anisotropy bounds, so
+  // this stays a test of the placement maths rather than of the clamp.
   const pose = makePose({
     [KP.LeftShoulder]: { x: 150, y: 300 },
     [KP.RightShoulder]: { x: 250, y: 300 },
-    [KP.LeftHip]: { x: 160, y: 500 },
-    [KP.RightHip]: { x: 240, y: 500 },
+    [KP.LeftHip]: { x: 160, y: 410 },
+    [KP.RightHip]: { x: 240, y: 410 },
   });
   const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 });
   assert.ok(fit != null);
   assert.equal(fit.rotation, 0);
   assert.equal(fit.originX, 200);
   assert.equal(fit.originY, 300);
-  // shoulders span 100px against 464 artwork px; torso 200px against 460.
+  // shoulders span 100px against 464 artwork px; torso 110px against 460.
   assert.ok(Math.abs(fit.scaleX - 100 / 464) < 1e-9);
-  assert.ok(Math.abs(fit.scaleY - 200 / 460) < 1e-9);
+  assert.ok(Math.abs(fit.scaleY - 110 / 460) < 1e-9);
   assert.equal(fit.anchorX, 512);
 });
 
@@ -115,11 +117,11 @@ test('ease and user trim both scale the garment', () => {
   const plain = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
   const eased = solveFit(pose, ANCHORS, {
     shoulderEase: 1.2,
-    lengthEase: 1.5,
+    lengthEase: 1.2,
     userScale: 1.1,
   })!;
   assert.ok(Math.abs(eased.scaleX - plain.scaleX * 1.2 * 1.1) < 1e-9);
-  assert.ok(Math.abs(eased.scaleY - plain.scaleY * 1.5 * 1.1) < 1e-9);
+  assert.ok(Math.abs(eased.scaleY - plain.scaleY * 1.2 * 1.1) < 1e-9);
 });
 
 test('a tilted shoulder line rotates the garment with it', () => {
@@ -254,4 +256,43 @@ test('rotation stays in the canonical (-pi, pi] range', () => {
   });
   const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
   assert.ok(fit.rotation > -Math.PI && fit.rotation <= Math.PI, `rotation=${fit.rotation}`);
+});
+
+test('a long torso does not stretch the garment into a rectangle', () => {
+  // Shoulders 100px, torso 280px: the shape that measured 1.84 anisotropy in
+  // the browser and rendered the tee as a tall narrow slab.
+  const pose = makePose({
+    [KP.LeftShoulder]: { x: 150, y: 300 },
+    [KP.RightShoulder]: { x: 250, y: 300 },
+    [KP.LeftHip]: { x: 160, y: 580 },
+    [KP.RightHip]: { x: 240, y: 580 },
+  });
+  const fit = solveFit(pose, ANCHORS, { shoulderEase: 1.06, lengthEase: 1.32 })!;
+  const anisotropy = fit.scaleY / fit.scaleX;
+  assert.ok(anisotropy <= 1.18 + 1e-9, `anisotropy=${anisotropy}`);
+  // Still scaled to the body, not collapsed to something arbitrary.
+  assert.ok(Math.abs(fit.scaleX - (100 * 1.06) / ANCHORS.shoulderWidth) < 1e-9);
+});
+
+test('a short torso does not squash the garment either', () => {
+  const pose = makePose({
+    [KP.LeftShoulder]: { x: 100, y: 300 },
+    [KP.RightShoulder]: { x: 300, y: 300 },
+    [KP.LeftHip]: { x: 140, y: 360 },
+    [KP.RightHip]: { x: 260, y: 360 },
+  });
+  const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
+  const anisotropy = fit.scaleY / fit.scaleX;
+  assert.ok(anisotropy >= 0.85 - 1e-9, `anisotropy=${anisotropy}`);
+});
+
+test('a normal build is left untouched by the anisotropy bounds', () => {
+  const pose = makePose({
+    [KP.LeftShoulder]: { x: 150, y: 300 },
+    [KP.RightShoulder]: { x: 250, y: 300 },
+    [KP.LeftHip]: { x: 160, y: 410 },
+    [KP.RightHip]: { x: 240, y: 410 },
+  });
+  const fit = solveFit(pose, ANCHORS, { shoulderEase: 1, lengthEase: 1 })!;
+  assert.ok(Math.abs(fit.scaleY - (110 * 1) / ANCHORS.torsoLength) < 1e-9, 'scaleY was clamped');
 });

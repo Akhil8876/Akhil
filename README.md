@@ -72,6 +72,17 @@ torso visible it falls back to a population ratio and labels the result
 *estimated* rather than presenting it as a measurement. See `src/fit/measure.ts`
 for the constants and where they come from.
 
+## Two apps, one core
+
+| | |
+| --- | --- |
+| **`/`** | React Native (Expo) app for iOS and Android |
+| **`/web`** | Browser app — see [web/README.md](web/README.md) |
+
+The fitting maths, sizing, smoothing, keypoint layout and garment catalog are
+shared verbatim between them; only the pose source and the renderer differ. The
+web app needs no SDK, emulator or device: `cd web && npm install && npm run dev`.
+
 ## Getting started
 
 Requires a **physical device**. Camera frame processors do not work in the iOS

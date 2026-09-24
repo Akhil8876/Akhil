@@ -1,3 +1,5 @@
+import type { GarmentSpec } from './data';
+
 export type GarmentCategory = 'top' | 'outerwear' | 'dress';
 
 /**
@@ -28,22 +30,8 @@ export interface SizeChartEntry {
   chestCm: number;
 }
 
-export interface Garment {
-  id: string;
-  name: string;
-  brand: string;
-  category: GarmentCategory;
-  priceCents: number;
-  colorway: string;
+/** A garment as the React Native app sees it: shared spec + bundled artwork. */
+export interface Garment extends GarmentSpec {
   /** require()'d artwork with a transparent background. */
   image: number;
-  anchors: GarmentAnchors;
-  /**
-   * Cut allowance. 1.0 tracks the body exactly; an oversized coat sits wider
-   * than the wearer's shoulders and a fitted tee sits slightly narrower.
-   */
-  shoulderEase: number;
-  /** Hem allowance along the torso axis, same idea as `shoulderEase`. */
-  lengthEase: number;
-  sizes: SizeChartEntry[];
 }
