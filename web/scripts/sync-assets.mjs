@@ -20,6 +20,11 @@ const jobs = [
     what: 'MediaPipe WASM runtime',
     from: path.join(root, 'node_modules', '@mediapipe', 'tasks-vision', 'wasm'),
     to: path.join(root, 'public', 'wasm'),
+    // The package ships three builds. FilesetResolver fetches the SIMD one,
+    // and falls back to nosimd on browsers without WASM SIMD (older Safari).
+    // The '_module_' pair is only used when resolving as an ES module, which
+    // this app never does - 11MB of dead weight in every deploy.
+    skip: (name) => name.includes('_module_'),
   },
   {
     what: 'garment artwork',
@@ -66,6 +71,9 @@ for (const job of jobs) {
     process.exit(1);
   }
   mkdirSync(job.to, { recursive: true });
-  cpSync(job.from, job.to, { recursive: true });
+  cpSync(job.from, job.to, {
+    recursive: true,
+    filter: (src) => !(job.skip?.(path.basename(src)) ?? false),
+  });
   console.log(`synced ${job.what} -> ${path.relative(root, job.to)}`);
 }

@@ -40,6 +40,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
+page.on('request', (r) => { const u = r.url(); if (u.includes('/wasm/') || u.includes('/models/')) logs.push(`[fetch] ${u.split('/').slice(-1)[0]}`); });
 page.on('requestfailed', (r) => logs.push(`[reqfail] ${r.url()} ${r.failure()?.errorText ?? ''}`));
 page.on('response', (r) => { if (r.status() >= 400) logs.push(`[http ${r.status()}] ${r.url()}`); });
 

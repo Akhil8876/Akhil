@@ -22,6 +22,25 @@ Needs a browser with `getUserMedia` and WebAssembly: any current Chrome, Edge,
 Firefox or Safari. Chrome and Safari require HTTPS or `localhost`, which `npm
 run dev` gives you.
 
+## Deploying
+
+The app is fully static once built, so any static host works. On Vercel:
+
+```bash
+npx vercel --cwd web
+```
+
+Or import the repo in the Vercel dashboard and set **Root Directory** to
+`web` — `web/vercel.json` supplies the rest (Vite preset, long cache headers
+for the model and WASM, correct content type for `.task`).
+
+Two things to know:
+
+- The build is ~33MB, nearly all of it the pose model and the WASM runtime.
+  That is static file weight, not bundle weight: the JS is 383KB.
+- **Camera access needs HTTPS.** Every host gives you that, and `localhost` is
+  exempt, but a plain-HTTP deploy will silently fail to open the camera.
+
 ## How it relates to the React Native app
 
 The valuable half is shared verbatim, through the `@shared` alias into `../src`:
