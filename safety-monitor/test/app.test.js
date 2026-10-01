@@ -10,7 +10,7 @@ const config = {
   dashboardPassword: 'desk-pass',
   sessionSecret: 'test-secret',
   meta: { ...loadConfig({}).meta, verifyToken: 'vt', appSecret: 'app-secret' },
-  twilio: { authToken: 'twilio-token', publicBaseUrl: '' },
+  twilio: { authToken: 'twilio-token' },
 };
 
 let server, base, store, live, cookie;
@@ -225,7 +225,7 @@ test('Twilio location webhook is verified, stored and answered with TwiML', asyn
   assert.match(await res.text(), /<Message>Location received/);
   const ev = await stream.next();
   assert.equal(ev.data.user.name, 'Fatima');
-  assert.equal(ev.data.location.provider, 'twilio');
+  assert.equal(ev.data.location.provider, 'twilio-whatsapp');
   stream.close();
 });
 

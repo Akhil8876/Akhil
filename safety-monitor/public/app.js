@@ -46,7 +46,24 @@
   }
   const clock = (ts) =>
     new Date(ts).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  const displayName = (u) => u.name || u.phone;
+  const isTelegramOnly = (phone) => phone.startsWith('tg:');
+  const displayPhone = (phone) => (isTelegramOnly(phone) ? 'Telegram (number not shared)' : phone);
+  const displayName = (u) => u.name || displayPhone(u.phone);
+  const SOURCES = {
+    whatsapp: 'WhatsApp',
+    meta: 'WhatsApp',
+    twilio: 'WhatsApp',
+    'twilio-whatsapp': 'WhatsApp',
+    sms: 'SMS',
+    telegram: 'Telegram',
+    'web-link': 'Live link',
+    tracker: 'Tracker app',
+  };
+  const sourceLabel = (provider) => SOURCES[provider] ?? provider;
+  const LIVE_SOURCES = new Set(['web-link', 'tracker', 'telegram']);
+  /** Continuously updating right now (live link, tracker app or Telegram live location). */
+  const isLive = (u) =>
+    Boolean(u.latest && LIVE_SOURCES.has(u.latest.provider) && serverNow() - u.latest.sharedAt < 2 * 60000);
   const initials = (u) =>
     (u.name || u.phone.slice(-2))
       .split(/\s+/)
@@ -100,14 +117,21 @@
     return el(
       'div',
       { class: 'popup' },
-      el('strong', {}, displayName(u)),
-      el('div', { class: 'muted' }, u.phone),
+      el('strong', {}, displayName(u), isLive(u) ? el('span', { class: 'live-badge' }, 'LIVE') : null),
+      el('div', { class: 'muted' }, displayPhone(u.phone), u.code ? ` · code ${u.code}` : ''),
       u.sosAt ? el('div', { class: 'popup-sos' }, `SOS raised ${ago(u.sosAt)}`) : null,
       loc
         ? [
-            el('div', {}, `Shared ${ago(loc.sharedAt)} · ${clock(loc.sharedAt)}`),
+            el('div', {}, `Shared ${ago(loc.sharedAt)} via ${sourceLabel(loc.provider)} · ${clock(loc.sharedAt)}`),
+            loc.sentFrom ? el('div', { class: 'popup-sos' }, `Sent from another phone: ${loc.sentFrom}`) : null,
             loc.label || loc.address ? el('div', {}, [loc.label, loc.address].filter(Boolean).join(', ')) : null,
-            el('div', { class: 'mono' }, `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`),
+            el(
+              'div',
+              { class: 'mono' },
+              `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`,
+              loc.accuracy ? ` ±${Math.round(loc.accuracy)} m` : '',
+              loc.battery != null ? ` · battery ${Math.round(loc.battery)}%` : '',
+            ),
           ]
         : el('div', {}, 'No location shared yet'),
       el(
@@ -116,6 +140,12 @@
         gmaps ? el('a', { href: gmaps, target: '_blank', rel: 'noopener' }, 'Open in Google Maps') : null,
         el('button', { type: 'button', class: 'ghost', onclick: () => loadFullHistory(u.phone) }, 'Full history'),
         u.sosAt ? el('button', { type: 'button', class: 'danger', onclick: () => acknowledge(u.phone) }, 'Acknowledge SOS') : null,
+      ),
+      el(
+        'div',
+        { class: 'popup-actions' },
+        el('button', { type: 'button', class: 'ghost', onclick: () => makeTrackingLink(u.phone) }, 'Live-sharing link'),
+        el('button', { type: 'button', class: 'ghost', onclick: () => setupTracker(u.phone) }, 'Tracker app setup'),
       ),
     );
   }
@@ -211,7 +241,7 @@
   function renderPeople() {
     const q = $('filter').value.trim().toLowerCase();
     const list = sortedUsers().filter(
-      (u) => !q || u.phone.includes(q) || (u.name ?? '').toLowerCase().includes(q),
+      (u) => !q || u.phone.includes(q) || (u.code ?? '').includes(q) || (u.name ?? '').toLowerCase().includes(q),
     );
     $('empty').hidden = state.users.size > 0;
     $('people').replaceChildren(
@@ -230,12 +260,16 @@
           el(
             'div',
             { class: 'person-main' },
-            el('div', { class: 'person-name' }, displayName(u)),
-            el('div', { class: 'muted small' }, u.name ? u.phone : ''),
+            el('div', { class: 'person-name' }, displayName(u), isLive(u) ? el('span', { class: 'live-badge' }, 'LIVE') : null),
+            el('div', { class: 'muted small' }, u.name ? displayPhone(u.phone) : '', u.code ? `${u.name ? ' · ' : ''}code ${u.code}` : ''),
             el(
               'div',
               { class: 'small' },
-              u.latest ? `Location ${ago(u.latest.sharedAt)}` : `Messaged ${ago(u.lastSeen)}, no location yet`,
+              u.latest
+                ? `${sourceLabel(u.latest.provider)} ${ago(u.latest.sharedAt)}`
+                : u.locationCount === 0 && u.firstSeen === u.lastSeen
+                  ? 'Registered, nothing shared yet'
+                  : `Messaged ${ago(u.lastSeen)}, no location yet`,
               u.latest ? ` · ${(state.tracks.get(u.phone) ?? []).length} in window` : '',
             ),
             u.sosAt
@@ -323,10 +357,27 @@
     );
   }
 
+  let accuracyCircle = null;
+  function drawAccuracy() {
+    accuracyCircle?.remove();
+    accuracyCircle = null;
+    const u = state.users.get(state.selected);
+    if (u?.latest?.accuracy) {
+      accuracyCircle = L.circle([u.latest.lat, u.latest.lng], {
+        radius: u.latest.accuracy,
+        color: trackColour(u.phone),
+        weight: 1,
+        fillOpacity: 0.12,
+        interactive: false,
+      }).addTo(map);
+    }
+  }
+
   function select(phone, pan) {
     state.selected = phone;
     const u = state.users.get(phone);
     const m = markers.get(phone);
+    drawAccuracy();
     if (pan && u?.latest) map.flyTo([u.latest.lat, u.latest.lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
     if (m) m.marker.openPopup();
     for (const [p, line] of trails) line.setStyle({ weight: p === phone ? 6 : 3, opacity: p === phone ? 1 : 0.5 });
@@ -419,19 +470,27 @@
   function activityItem({ at, phone, kind, loc, msg }) {
     const u = state.users.get(phone);
     const who = u ? displayName(u) : phone;
+    const via = (item) => ` (${sourceLabel(item.provider)}${item.sentFrom ? `, sent from ${item.sentFrom}` : ''})`;
     if (kind === 'loc') {
       const where = [loc.label, loc.address].filter(Boolean).join(', ');
-      return { at, phone, who, text: `shared location${where ? `: ${where}` : ''}` };
+      return { at, phone, who, text: `shared location${where ? `: ${where}` : ''}${via(loc)}` };
     }
-    return { at, phone, who, text: `“${msg.body}”`, sos: msg.isSos };
+    return { at, phone, who, text: `“${msg.body}”${via(msg)}`, sos: msg.isSos };
   }
 
   function onLocation({ location, user }) {
+    const wasLive = state.users.has(user.phone) && isLive(state.users.get(user.phone));
     state.users.set(user.phone, user);
     if (addToTrack(location)) drawPoint(location);
     drawTrail(user.phone);
     drawMarker(user);
-    addActivity(activityItem({ at: location.sharedAt, phone: user.phone, kind: 'loc', loc: location }));
+    if (state.selected === user.phone) drawAccuracy();
+    // A live session sends a point every few seconds; log when it starts, not every point.
+    if (!(wasLive && LIVE_SOURCES.has(location.provider))) {
+      const item = activityItem({ at: location.sharedAt, phone: user.phone, kind: 'loc', loc: location });
+      if (LIVE_SOURCES.has(location.provider)) item.text = `started live sharing (${sourceLabel(location.provider)})`;
+      addActivity(item);
+    }
     flash(user.phone);
     if (user.sosAt) beep();
     scheduleRender();
@@ -484,6 +543,114 @@
     scheduleRender();
   }
 
+  async function postJson(url, body = {}) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) {
+      location.href = '/login';
+      throw new Error('signed out');
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    return data;
+  }
+
+  function showInfo(title, ...body) {
+    $('info-title').textContent = title;
+    $('info-body').replaceChildren(...body);
+    $('info-dialog').showModal();
+  }
+
+  function copyField(value) {
+    const input = el('input', { class: 'copy-input', readonly: true, value, onfocus: (e) => e.target.select() });
+    const btn = el('button', {
+      type: 'button',
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          btn.textContent = 'Copied';
+        } catch {
+          input.select();
+        }
+      },
+    }, 'Copy');
+    return el('div', { class: 'copy-row' }, input, btn);
+  }
+
+  async function makeTrackingLink(phone) {
+    try {
+      const { url, expiresAt } = await postJson(`/api/users/${encodeURIComponent(phone)}/tracking-link`);
+      const u = state.users.get(phone);
+      showInfo(
+        `Live-sharing link for ${displayName(u)}`,
+        el('p', {}, 'Send this to the person (or read it out). Opening it and tapping "Start sharing" streams their GPS to this map.'),
+        copyField(url),
+        el('p', { class: 'muted small' }, `Valid until ${clock(expiresAt)}. They can also get one themselves by sending TRACK.`),
+      );
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  async function setupTracker(phone) {
+    const u = state.users.get(phone);
+    if (!confirm(`Create a new tracker key for ${displayName(u)}? Any tracker already set up for them stops working.`)) return;
+    try {
+      const { identifier, serverUrl } = await postJson(`/api/users/${encodeURIComponent(phone)}/device-key`);
+      showInfo(
+        `Tracker app for ${displayName(u)}`,
+        el('p', {}, 'Install the free Traccar Client app (Android or iPhone), then in its settings enter:'),
+        el('div', { class: 'small muted' }, 'Device identifier'),
+        copyField(identifier),
+        el('div', { class: 'small muted' }, 'Server URL'),
+        copyField(serverUrl),
+        el(
+          'p',
+          { class: 'muted small' },
+          'Set location accuracy to High, allow location "All the time", and switch the service on. ' +
+            'It keeps sending with the screen locked. GPS trackers that speak the OsmAnd protocol use the same two values.',
+        ),
+      );
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
+  $('add-person').addEventListener('click', () => {
+    $('person-form').reset();
+    $('person-error').hidden = true;
+    $('person-dialog').showModal();
+  });
+  $('person-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    try {
+      const { user } = await postJson('/api/people', { name: form.get('name'), phone: form.get('phone') });
+      $('person-dialog').close();
+      state.users.set(user.phone, { ...state.users.get(user.phone), ...user });
+      scheduleRender();
+      showInfo(
+        `${displayName(user)} is registered`,
+        el('p', {}, 'Their personal safety code:'),
+        el('div', { class: 'big-code' }, user.code),
+        el(
+          'p',
+          { class: 'muted small' },
+          `From any phone they can send "SOS ${user.code}" or "TRACK ${user.code}" to the safety number by WhatsApp, SMS or Telegram.`,
+        ),
+      );
+    } catch (err) {
+      $('person-error').textContent = err.message;
+      $('person-error').hidden = false;
+    }
+  });
+  for (const btn of document.querySelectorAll('dialog [data-close]')) {
+    btn.addEventListener('click', () => btn.closest('dialog').close());
+  }
+
   // --- Live connection -------------------------------------------------------------------
   let source = null;
   function setConn(s, text) {
@@ -506,6 +673,8 @@
     source.addEventListener('location', handle(onLocation));
     source.addEventListener('message', handle(onMessage));
     source.addEventListener('user', handle(onUser));
+    // The server asks for a fresh snapshot after merging records (a Telegram user linked a number).
+    source.addEventListener('refresh', () => connect());
     source.onopen = () => setConn('live', 'Live');
     source.onerror = async () => {
       if (source.readyState === EventSource.CONNECTING) return setConn('connecting', 'Reconnecting…');

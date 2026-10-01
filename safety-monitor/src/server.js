@@ -15,6 +15,12 @@ if (!config.sessionSecret) {
 if (!config.meta.appSecret) {
   console.warn('[webhook] WHATSAPP_APP_SECRET is not set: Meta webhook signatures are NOT verified.');
 }
+if (config.telegram.botToken && !config.telegram.webhookSecret) {
+  console.warn('[webhook] TELEGRAM_WEBHOOK_SECRET is not set: anyone can post fake Telegram updates.');
+}
+if (!config.publicBaseUrl) {
+  console.warn('[links] PUBLIC_BASE_URL is not set: tracking links use the address each request arrived on.');
+}
 if (!config.twilio.authToken) {
   console.warn('[webhook] TWILIO_AUTH_TOKEN is not set: Twilio webhook signatures are NOT verified.');
 }
@@ -23,7 +29,7 @@ const store = openStore(config.dbPath);
 const { app, live } = createApp({ config, store });
 
 const purge = () => {
-  const removed = store.purgeOlderThan(Date.now() - config.retentionDays * 86_400_000);
+  const removed = store.purgeOlderThan(Date.now() - config.retentionDays * 86_400_000, Date.now());
   if (removed.locations || removed.messages) {
     console.log(`[retention] removed ${removed.locations} locations, ${removed.messages} messages`);
   }

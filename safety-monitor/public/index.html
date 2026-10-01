@@ -29,7 +29,10 @@
   <main class="layout">
     <aside class="sidebar">
       <div class="controls">
-        <input type="search" id="filter" placeholder="Search name or number" aria-label="Search people">
+        <div class="control-row">
+          <input type="search" id="filter" placeholder="Name, number or code" aria-label="Search people">
+          <button type="button" id="add-person">Add person</button>
+        </div>
         <div class="control-row">
           <label>History
             <select id="window">
@@ -64,6 +67,28 @@
   </main>
 
   <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <dialog id="person-dialog">
+    <form method="dialog" id="person-form">
+      <h2>Register a person</h2>
+      <p class="muted small">They get a personal safety code to use from any phone ("SOS 482913").</p>
+      <label>Name <input name="name" maxlength="100" autocomplete="off"></label>
+      <label>Phone number <input name="phone" required inputmode="tel" placeholder="+91 98765 43210" autocomplete="off"></label>
+      <p class="login-error small" id="person-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Cancel</button>
+        <button type="submit" class="primary">Register</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="info-dialog">
+    <div class="dialog-body">
+      <h2 id="info-title"></h2>
+      <div id="info-body"></div>
+      <div class="dialog-actions"><button type="button" class="primary" data-close>Done</button></div>
+    </div>
+  </dialog>
 
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/app.js"></script>

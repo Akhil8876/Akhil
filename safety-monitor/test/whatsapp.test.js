@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  isSosText,
   normalisePhone,
   parseMetaWebhook,
   parseTwilioWebhook,
@@ -31,7 +30,7 @@ test('parses a Meta location message', () => {
     1800000000000,
   );
   assert.deepEqual(m, {
-    provider: 'meta',
+    provider: 'whatsapp',
     messageId: 'wamid.1',
     phone: '+919876543210',
     name: 'Priya',
@@ -77,8 +76,10 @@ test('parses Twilio location and text', () => {
   assert.equal(loc.lat, 12.97);
   assert.equal(loc.address, 'MG Road');
   assert.equal(loc.sharedAt, 42);
-  const [txt] = parseTwilioWebhook({ From: 'whatsapp:+1555', Body: 'SOS', MessageSid: 'SM2' });
+  assert.equal(loc.provider, 'twilio-whatsapp');
+  const [txt] = parseTwilioWebhook({ From: '+15555550100', Body: 'SOS', MessageSid: 'SM2' });
   assert.equal(txt.kind, 'text');
+  assert.equal(txt.provider, 'sms', 'a Twilio number without the whatsapp: prefix is plain SMS');
   assert.deepEqual(parseTwilioWebhook({}), []);
 });
 
@@ -86,15 +87,12 @@ test('phone normalisation', () => {
   assert.equal(normalisePhone('whatsapp:+91 98765-43210'), '+919876543210');
   assert.equal(normalisePhone('919876543210'), '+919876543210');
   assert.equal(normalisePhone(''), null);
-});
-
-test('SOS keyword detection matches whole words only', () => {
-  const kw = ['sos', 'help', 'bachao'];
-  assert.ok(isSosText('SOS!', kw));
-  assert.ok(isSosText('please HELP me', kw));
-  assert.ok(isSosText('Bachao', kw));
-  assert.ok(!isSosText('helpful driver, thanks', kw));
-  assert.ok(!isSosText('reached home', kw));
+  // National formats from Indian SMS gateways
+  assert.equal(normalisePhone('9876543210', '91'), '+919876543210');
+  assert.equal(normalisePhone('09876543210', '91'), '+919876543210');
+  assert.equal(normalisePhone('919876543210', '91'), '+919876543210');
+  assert.equal(normalisePhone('+447700900123', '91'), '+447700900123');
+  assert.equal(normalisePhone('00447700900123', '91'), '+447700900123');
 });
 
 test('Meta signature verification', () => {

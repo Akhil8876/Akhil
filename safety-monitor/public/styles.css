@@ -174,3 +174,51 @@ button.ghost { background: transparent; }
   .sidebar { border-right: 0; border-top: 1px solid var(--line); }
   .topbar-right { margin-left: 0; }
 }
+
+/* Live-sharing page (opened on the person's phone) */
+.track-page { align-items: center; padding: 16px; }
+.track-card { width: 100%; max-width: 420px; display: grid; gap: 14px; padding: 8px 0 24px; }
+.track-card h1 { font-size: 22px; margin: 4px 0 0; }
+.track-card p { margin: 0; }
+.track-start {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+  font-size: 18px; font-weight: 700; padding: 16px; border-radius: 12px;
+}
+.track-sos {
+  background: var(--sos); border-color: var(--sos); color: #fff;
+  font-size: 18px; font-weight: 700; padding: 18px; border-radius: 12px; margin-top: 8px;
+}
+.track-sos:disabled { opacity: 0.85; cursor: default; }
+.track-status { padding: 10px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); font-weight: 600; }
+.track-status::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; background: var(--stale); vertical-align: 1px; }
+.track-status[data-state="live"]::before { background: var(--active); animation: blink 1.6s infinite; }
+.track-status[data-state="retry"]::before { background: var(--recent); }
+.track-status[data-state="error"] { color: var(--sos); }
+.track-status[data-state="error"]::before { background: var(--sos); }
+@keyframes blink { 50% { opacity: 0.3; } }
+.track-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+.track-facts div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.track-facts dt { font-size: 12px; color: var(--muted); }
+.track-facts dd { margin: 2px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.track-help { color: var(--muted); }
+.track-help ul { padding-left: 18px; }
+
+/* Dialogs and badges */
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); padding: 20px; width: min(440px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog h2 { margin: 0 0 8px; font-size: 18px; }
+dialog form, .dialog-body { display: grid; gap: 10px; }
+dialog label { display: grid; gap: 4px; font-weight: 600; }
+dialog input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-weight: 400; }
+dialog p { margin: 0; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.copy-row { display: flex; gap: 6px; }
+.copy-input { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+.big-code { font-size: 34px; font-weight: 800; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
+.live-badge {
+  margin-left: 6px; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: .04em;
+  background: var(--active); color: #fff; vertical-align: 2px;
+}
+.controls .control-row input[type="search"] { flex: 1; }
+.controls .control-row #add-person { white-space: nowrap; }

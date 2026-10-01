@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>Share live location · Safety Desk</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="track-page">
+  <main class="track-card">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Safety Desk</div>
+    <h1 id="greeting">Share your live location</h1>
+    <p class="muted" id="intro">The safety desk will see where you are on their map while this page is open.</p>
+
+    <button type="button" id="start" class="track-start">Start sharing</button>
+    <button type="button" id="stop" class="ghost" hidden>Stop sharing</button>
+
+    <div class="track-status" id="status" data-state="idle" aria-live="polite">Not sharing yet</div>
+    <dl class="track-facts" id="facts" hidden>
+      <div><dt>Last sent</dt><dd id="last">—</dd></div>
+      <div><dt>Accuracy</dt><dd id="accuracy">—</dd></div>
+      <div><dt>Updates sent</dt><dd id="count">0</dd></div>
+    </dl>
+
+    <button type="button" id="sos" class="track-sos">SOS: I need help now</button>
+    <p class="muted small" id="sos-note" hidden></p>
+
+    <details class="track-help">
+      <summary>Keep tracking working</summary>
+      <ul>
+        <li>Keep this page open and your screen on. Locking the phone or switching apps pauses sharing.</li>
+        <li>If location is blocked, allow it for this site in your browser settings and tap Start again.</li>
+        <li>For tracking with the screen locked, ask the safety desk to set up the tracker app.</li>
+      </ul>
+    </details>
+  </main>
+  <script src="/track.js"></script>
+</body>
+</html>

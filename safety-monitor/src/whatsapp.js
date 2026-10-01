@@ -4,9 +4,20 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 // { provider, messageId, phone, name, sharedAt, kind: 'location'|'text'|'other',
 //   lat, lng, label, address, text, replyContext }
 
-export function normalisePhone(raw) {
-  const digits = String(raw ?? '').replace(/^whatsapp:/i, '').replace(/[^\d]/g, '');
-  return digits ? `+${digits}` : null;
+/**
+ * Turns any provider's sender format into E.164 (+919876543210). With a default country code,
+ * national numbers (9876543210 or 09876543210, as Indian SMS gateways often send) get it added.
+ */
+export function normalisePhone(raw, defaultCountryCode = null) {
+  const value = String(raw ?? '').replace(/^whatsapp:/i, '').trim();
+  let digits = value.replace(/[^\d]/g, '');
+  if (!digits) return null;
+  if (value.startsWith('00')) digits = digits.slice(2);
+  else if (defaultCountryCode && !value.startsWith('+')) {
+    if (digits.length === 11 && digits.startsWith('0')) digits = defaultCountryCode + digits.slice(1);
+    else if (digits.length === 10) digits = defaultCountryCode + digits;
+  }
+  return `+${digits}`;
 }
 
 export function isValidCoordinate(lat, lng) {
@@ -33,7 +44,7 @@ export function parseMetaWebhook(body, now = Date.now()) {
         if (!phone) continue;
         const ts = Number(m.timestamp);
         const base = {
-          provider: 'meta',
+          provider: 'whatsapp',
           messageId: clean(m.id, 200),
           phone,
           name: clean(names.get(m.from), 100),
@@ -63,12 +74,12 @@ export function parseMetaWebhook(body, now = Date.now()) {
   return out;
 }
 
-/** Twilio WhatsApp webhook form fields -> normalised messages. */
+/** Twilio webhook form fields (WhatsApp or plain SMS, same format) -> normalised messages. */
 export function parseTwilioWebhook(form, now = Date.now()) {
   const phone = normalisePhone(form?.From);
   if (!phone) return [];
   const base = {
-    provider: 'twilio',
+    provider: /^whatsapp:/i.test(form.From) ? 'twilio-whatsapp' : 'sms',
     messageId: clean(form.MessageSid, 200),
     phone,
     name: clean(form.ProfileName, 100),
@@ -84,11 +95,6 @@ export function parseTwilioWebhook(form, now = Date.now()) {
   }
   if (clean(form.Body)) return [{ ...base, kind: 'text', text: clean(form.Body, 2000) }];
   return [{ ...base, kind: 'other' }];
-}
-
-export function isSosText(text, keywords) {
-  const words = String(text ?? '').toLowerCase().split(/[^\p{L}\p{N}]+/u);
-  return words.some((w) => keywords.includes(w));
 }
 
 function safeEqual(a, b) {
@@ -119,26 +125,6 @@ export function twilioSignature(url, params, authToken) {
 export function verifyTwilioSignature(url, params, header, authToken) {
   if (!header) return false;
   return safeEqual(twilioSignature(url, params, authToken), String(header));
-}
-
-export function replyText(inbound, { isSos, emergencyNumber }) {
-  if (isSos) {
-    return (
-      'SOS received. The safety desk has been alerted. ' +
-      'Please share your current location now (tap 📎 > Location). ' +
-      `If you are in immediate danger, call ${emergencyNumber}.`
-    );
-  }
-  if (inbound.kind === 'location') {
-    return (
-      'Location received. The safety desk can see where you are. ' +
-      'Share your location again whenever you move, or send SOS if you need urgent help.'
-    );
-  }
-  return (
-    'This is the safety helpline. Share your location (tap 📎 > Location) so the safety desk can see you, ' +
-    `or send SOS for urgent help. In immediate danger, call ${emergencyNumber}.`
-  );
 }
 
 /** Sends a text reply through the Cloud API. No-op without an access token. */

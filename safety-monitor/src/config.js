@@ -14,10 +14,19 @@ export function loadConfig(env = process.env) {
       accessToken: env.WHATSAPP_ACCESS_TOKEN || '',
       graphVersion: env.WHATSAPP_GRAPH_VERSION || 'v21.0',
     },
+    // Public https address of this server. Used in tracking links and for Twilio signatures;
+    // without it the address is taken from each request.
+    publicBaseUrl: (env.PUBLIC_BASE_URL || '').replace(/\/+$/, ''),
     twilio: {
       authToken: env.TWILIO_AUTH_TOKEN || '',
-      publicBaseUrl: (env.PUBLIC_BASE_URL || '').replace(/\/+$/, ''),
     },
+    telegram: {
+      botToken: env.TELEGRAM_BOT_TOKEN || '',
+      webhookSecret: env.TELEGRAM_WEBHOOK_SECRET || '',
+    },
+    smsWebhookKey: env.SMS_WEBHOOK_KEY || '',
+    defaultCountryCode: (env.DEFAULT_COUNTRY_CODE || '91').replace(/\D/g, ''),
+    trackLinkHours: Number(env.TRACK_LINK_HOURS) || 12,
     emergencyNumber: env.EMERGENCY_NUMBER || '112',
     sosKeywords: (env.SOS_KEYWORDS || DEFAULT_SOS_KEYWORDS)
       .split(',')
