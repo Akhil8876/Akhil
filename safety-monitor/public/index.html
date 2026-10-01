@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Safety Desk</title>
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Safety Desk</div>
+    <div class="stats" aria-live="polite">
+      <div class="stat stat-sos"><span id="stat-sos">0</span> open SOS</div>
+      <div class="stat"><span id="stat-active">0</span> active now</div>
+      <div class="stat"><span id="stat-users">0</span> people</div>
+      <div class="stat"><span id="stat-points">0</span> locations shown</div>
+    </div>
+    <div class="topbar-right">
+      <span class="conn" id="conn" data-state="connecting">Connecting…</span>
+      <button type="button" id="sound" class="ghost" aria-pressed="false">Turn on alarm sound</button>
+      <span class="muted" id="operator"></span>
+      <form method="post" action="/logout"><button type="submit" class="ghost">Sign out</button></form>
+    </div>
+  </header>
+
+  <div class="sos-banner" id="sos-banner" role="alert" hidden></div>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="controls">
+        <input type="search" id="filter" placeholder="Search name or number" aria-label="Search people">
+        <div class="control-row">
+          <label>History
+            <select id="window">
+              <option value="1">Last hour</option>
+              <option value="6">Last 6 hours</option>
+              <option value="24" selected>Last 24 hours</option>
+              <option value="168">Last 7 days</option>
+              <option value="0">Everything</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="show-trails" checked> Trails</label>
+          <label class="check"><input type="checkbox" id="show-points" checked> All points</label>
+        </div>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="people">People</button>
+        <button role="tab" aria-selected="false" data-tab="activity">Activity <span id="activity-badge" class="badge" hidden></span></button>
+      </div>
+      <ul class="people" id="people" role="tabpanel"></ul>
+      <ul class="activity" id="activity" role="tabpanel" hidden></ul>
+      <p class="empty muted" id="empty">No one has shared a location yet. Locations sent to the safety number appear here instantly.</p>
+    </aside>
+    <section class="map-wrap">
+      <div id="map" aria-label="Map of shared locations"></div>
+      <div class="legend">
+        <span><i class="dot sos"></i>SOS</span>
+        <span><i class="dot active"></i>Active</span>
+        <span><i class="dot recent"></i>Within 1h</span>
+        <span><i class="dot stale"></i>Older</span>
+      </div>
+    </section>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

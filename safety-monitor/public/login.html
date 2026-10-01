@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Safety Desk · Sign in</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="login-page">
+  <form class="login-card" method="post" action="/login">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Safety Desk</div>
+    <p class="muted">Live location monitoring for the women safety helpline.</p>
+    <p class="login-error" id="error" role="alert" hidden></p>
+    <label>Your name <input name="operator" autocomplete="name" required maxlength="60"></label>
+    <label>Desk password <input name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">Sign in</button>
+  </form>
+  <script>
+    const messages = {
+      invalid: 'Wrong password.',
+      operator: 'Enter your name so alert acknowledgements are attributed.',
+      locked: 'Too many attempts. Try again in 15 minutes.',
+    };
+    const code = new URLSearchParams(location.search).get('error');
+    if (messages[code]) {
+      const el = document.getElementById('error');
+      el.textContent = messages[code];
+      el.hidden = false;
+    }
+  </script>
+</body>
+</html>
