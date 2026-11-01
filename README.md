@@ -1,10 +1,39 @@
 # MirrorFit
 
-A mobile virtual try-on app. Point the front camera at yourself and clothing is
-tracked onto your body in real time, with a size recommendation derived from
-your own proportions.
+**Try clothes on with your camera — in real time, entirely on your device.**
 
-Everything runs on-device. No frame, photo or measurement is uploaded anywhere.
+Point the front camera (or your webcam) at yourself and garments are tracked onto
+your body as you move, with a size recommendation derived from your own
+proportions. No frame, photo or measurement is uploaded anywhere.
+
+![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Web-informational)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
+![Status](https://img.shields.io/badge/status-working%20prototype-yellow)
+
+## Why
+
+Online fashion has a fit problem: shoppers can't tell how a piece will sit on
+them, so they over-order and return. MirrorFit explores the lightest possible
+answer — no body scan, no upload, no account — just the phone already in your
+hand, with privacy as a hard requirement rather than a setting.
+
+## Highlights
+
+- **Real-time pose tracking** — MoveNet Lightning on mobile, MediaPipe Pose in
+  the browser, all on-device.
+- **Garments that move with you** — anchored to the shoulder line, warped onto
+  the torso, smoothed with a One Euro filter so they don't shimmer.
+- **Size recommendation** from one number you supply (your height), clearly
+  labelled *estimated* when the camera can't see enough of you.
+- **Pixel-accurate snapshots** — saved looks are recomposited at photo resolution
+  instead of screenshotting the preview.
+- **Two apps, one core** — React Native (iOS/Android) and a zero-install browser
+  version share the same fitting maths, sizing and catalog.
+- **Tested geometry** — projection, fit solve, sizing, smoothing and capture are
+  covered by fast `node:test` suites that need no device.
+
+**Stack:** TypeScript · React Native (Expo) · VisionCamera · TensorFlow Lite ·
+Skia · Reanimated · React + Vite (web) · MediaPipe
 
 ## How it works
 
@@ -158,8 +187,9 @@ numbers change.
 - **2D overlay, not cloth simulation.** Garments are warped onto the torso, so
   they read well from the front and degrade as you turn. `solveFit` rejects
   poses more oblique than `MIN_ASPECT` rather than drawing something wrong.
-- **No occlusion.** The garment draws over your arms when they cross your body;
-  fixing this needs a segmentation mask in addition to the pose.
+- **Arm occlusion is web-only so far.** The browser app cuts the garment away
+  where a forearm crosses the torso; the mobile app still draws over folded
+  arms. The geometry (`src/fit/armOcclusion.ts`) is shared and ready to wire in.
 - **Shutter latency.** The garment is placed using the pose as of the shutter,
   but `takePhoto()` returns a frame captured a moment later. Moving quickly as
   you tap will show a small offset.
@@ -169,6 +199,10 @@ numbers change.
 
 ## Licence
 
-App code is yours. The bundled pose model is MoveNet SinglePose Lightning,
+App code © Akhil Katkam. The bundled pose model is MoveNet SinglePose Lightning,
 redistributed from [google-coral/test_data](https://github.com/google-coral/test_data)
 under the Apache License 2.0.
+
+## Acknowledgements
+
+The forearm-occlusion approach is adapted from [ali-m07/mirrorfit](https://github.com/ali-m07/mirrorfit) (MIT).
