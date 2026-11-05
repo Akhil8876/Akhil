@@ -1,5 +1,6 @@
 /** Compares pose models on one or more stills: does it detect, and how sure. */
 import { chromium } from 'playwright';
+import { chromiumPath, CHROMIUM_ARGS } from './chromium.mjs';
 import { createServer } from 'vite';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -17,8 +18,8 @@ const payload = images.map((p) => ({
 const server = await createServer({ root, server: { port: 5197 } });
 await server.listen();
 const browser = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-  args: ['--enable-unsafe-swiftshader'],
+  executablePath: chromiumPath(),
+  args: CHROMIUM_ARGS,
 });
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));

@@ -7,6 +7,7 @@
  * positions we know. Screenshots land in scripts/out/.
  */
 import { chromium } from 'playwright';
+import { chromiumPath, CHROMIUM_ARGS } from './chromium.mjs';
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -23,11 +24,8 @@ await server.listen();
 const url = `http://localhost:5199/`;
 console.log('serving', url);
 
-// This container ships its own Chromium; use it rather than downloading one.
-const EXECUTABLE = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-
 const browser = await chromium.launch({
-  executablePath: EXECUTABLE,
+  executablePath: chromiumPath(),
   args: [
     '--use-fake-ui-for-media-stream',      // auto-grant the camera prompt
     '--use-fake-device-for-media-stream',

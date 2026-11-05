@@ -5,6 +5,9 @@ import path from 'node:path';
 const repoRoot = path.resolve(__dirname, '..');
 
 export default defineConfig({
+  // Relative asset URLs, so a build works both at a domain root and when it is
+  // served from a subpath alongside its files.
+  base: './',
   plugins: [react()],
   resolve: {
     alias: {

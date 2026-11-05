@@ -5,3 +5,5 @@ scripts/out/
 public/wasm/
 public/garments/
 public/models/
+scripts/fixtures/*.png
+scripts/fixtures/*.y4m

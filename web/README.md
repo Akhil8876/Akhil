@@ -22,6 +22,17 @@ Needs a browser with `getUserMedia` and WebAssembly: any current Chrome, Edge,
 Firefox or Safari. Chrome and Safari require HTTPS or `localhost`, which `npm
 run dev` gives you.
 
+## Photo mode
+
+Clicking **Use a photo instead** runs the same pipeline over a still: pose,
+mesh warp, silhouette clipping, arm occlusion and sizing all behave as they do
+live. It exists for three reasons — not every machine has a camera, not every
+environment grants one, and a full-length photo usually frames the body better
+than a laptop webcam, which lets the app *measure* rather than estimate.
+
+A still is never mirrored, so `getProjection` reports `mirrored: false` for it
+and every downstream transform follows.
+
 ## Deploying
 
 The app is fully static once built, so any static host works. On Vercel:
@@ -148,8 +159,23 @@ known. Screenshots land in `scripts/out/`. `scripts/probe.mjs` runs detection on
 a single still at several confidence thresholds, which is the quicker tool when
 the question is "is it seeing anyone at all".
 
-Both expect the pre-installed Chromium at `/opt/pw-browsers`; override with
-`CHROMIUM_PATH`, and the fake feed with `FAKE_VIDEO`.
+`scripts/photo-smoke.mjs <image>` does the same for the photo path, driving a
+real file input.
+
+`scripts/fixtures/generate_test_subject.py` draws the synthetic person these
+tests use and encodes the Y4M clip (the bundled ffmpeg has no PNG decoder, so
+the Y4M is written directly). Its header explains why the figure has a face
+and hands: BlazePose runs a person detector first, and a flat vector figure
+does not clear its default confidence — lite, full and heavy all scored one
+below 0.3. The generated images and clip are gitignored; regenerate with
+
+```bash
+python3 scripts/fixtures/generate_test_subject.py   # needs pillow + numpy
+```
+
+Chromium is discovered from `PLAYWRIGHT_BROWSERS_PATH`, whose revision moves
+when the container image is rebuilt; override with `CHROMIUM_PATH`, and the
+fake feed with `FAKE_VIDEO`.
 
 ## Known limitations
 

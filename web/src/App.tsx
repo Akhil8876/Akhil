@@ -41,6 +41,12 @@ export default function App() {
   const [showSkeleton, setShowSkeleton] = useState(false);
   const [looks, setLooks] = useState<Look[]>([]);
   const [sampledPose, setSampledPose] = useState<Pose>(() => emptyPose());
+  // Photo mode: a still stands in for the camera. Needed where no camera
+  // exists or the environment withholds it, and a full-length photo usually
+  // frames the body better than a laptop webcam anyway.
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const photoRef = useRef<HTMLImageElement>(null);
 
   const garment = garmentById(activeId) ?? GARMENTS[0]!;
 
@@ -55,10 +61,24 @@ export default function App() {
   }, []);
 
   const getProjection = useCallback((): ViewProjection | null => {
-    const video = videoRef.current;
     const stage = stageRef.current;
-    if (video == null || stage == null || video.videoWidth === 0) return null;
+    if (stage == null) return null;
     const rect = stage.getBoundingClientRect();
+
+    const photo = photoRef.current;
+    if (photo != null && photo.naturalWidth > 0) {
+      return {
+        videoWidth: photo.naturalWidth,
+        videoHeight: photo.naturalHeight,
+        viewWidth: rect.width,
+        viewHeight: rect.height,
+        // A photo is not a mirror: show it the way it was taken.
+        mirrored: false,
+      };
+    }
+
+    const video = videoRef.current;
+    if (video == null || video.videoWidth === 0) return null;
     return {
       videoWidth: video.videoWidth,
       videoHeight: video.videoHeight,
@@ -72,7 +92,7 @@ export default function App() {
 
   // Draw loop, independent of React rendering.
   useEffect(() => {
-    if (tracker.status !== 'ready') return;
+    if (tracker.status !== 'ready' && photoUrl == null) return;
     let raf = 0;
 
     const render = () => {
@@ -165,7 +185,7 @@ export default function App() {
 
     render();
     return () => cancelAnimationFrame(raf);
-  }, [tracker.status, tracker.poseRef, tracker.maskRef, garment, fitTrim, showSkeleton, getProjection]);
+  }, [tracker.status, tracker.poseRef, tracker.maskRef, garment, fitTrim, showSkeleton, getProjection, photoUrl]);
 
   // Slow sample for the size recommendation.
   useEffect(() => {
@@ -183,6 +203,32 @@ export default function App() {
     [measurements, garment.sizes],
   );
   const tracking = hasTorso(sampledPose);
+
+  const onPhoto = useCallback(
+    async (file: File) => {
+      setPhotoFailed(false);
+      const url = URL.createObjectURL(file);
+      setPhotoUrl(url);
+
+      // Wait for layout and decode before measuring, or the projection is
+      // computed against an element that has no size yet.
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('That file could not be read as an image.'));
+        img.src = url;
+      });
+      photoRef.current = image;
+      await new Promise(requestAnimationFrame);
+
+      const projection = getProjection();
+      if (projection == null) return;
+      const found = await tracker.detectStill(image, projection);
+      setPhotoFailed(!found);
+      setSampledPose(tracker.poseRef.current);
+    },
+    [getProjection, tracker],
+  );
 
   const onCapture = useCallback(async () => {
     const video = videoRef.current;
@@ -215,10 +261,14 @@ export default function App() {
   return (
     <main className="app">
       <div className="stage" ref={stageRef}>
-        <video ref={videoRef} className="preview" playsInline muted />
+        {photoUrl != null ? (
+          <img src={photoUrl} className="preview" alt="Your photo" />
+        ) : (
+          <video ref={videoRef} className="preview" playsInline muted />
+        )}
         <canvas ref={canvasRef} className="overlay" />
 
-        {started ? (
+        {started || photoUrl != null ? (
           <div className="hud">
             <span className="pill">
               <i className={`dot ${tracking ? 'ok' : 'warn'}`} />
@@ -226,7 +276,9 @@ export default function App() {
                 ? 'Loading model'
                 : tracking
                   ? 'Tracking'
-                  : 'Step into frame'}
+                  : photoUrl != null
+                    ? 'No one found in that photo'
+                    : 'Step into frame'}
             </span>
             <button
               type="button"
@@ -239,16 +291,32 @@ export default function App() {
           </div>
         ) : null}
 
-        {!started ? (
+        {!started && photoUrl == null ? (
           <div className="start">
             <h1>MirrorFit</h1>
             <p>
-              Try clothes on using your camera. Everything runs on your device
-              &mdash; no video is uploaded anywhere.
+              Try clothes on using your camera, or upload a full-length photo.
+              Everything runs on your device &mdash; nothing is uploaded anywhere.
             </p>
             <button type="button" className="primary" onClick={() => void tracker.start()}>
               Turn on camera
             </button>
+            <label className="secondary">
+              Use a photo instead
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void onPhoto(file);
+                }}
+              />
+            </label>
+            <p className="muted small">
+              A photo showing you head to foot gives the best fit, and lets the
+              app measure you rather than estimate.
+            </p>
             {tracker.status === 'denied' ? (
               <p className="error">
                 Camera access was refused. Allow it in your browser&rsquo;s address bar, then try again.
@@ -266,6 +334,26 @@ export default function App() {
           <button type="button" className="primary" onClick={() => void onCapture()} disabled={!tracking}>
             Save this look
           </button>
+          {photoUrl != null ? (
+            <label className="secondary">
+              Use a different photo
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void onPhoto(file);
+                }}
+              />
+            </label>
+          ) : null}
+          {photoFailed ? (
+            <p className="error small">
+              No person was found in that photo. A clear, front-on shot with
+              your shoulders and hips visible works best.
+            </p>
+          ) : null}
         </div>
 
         <FitPanel
